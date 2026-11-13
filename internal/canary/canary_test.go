@@ -56,9 +56,9 @@ func TestParse(t *testing.T) {
 	zone := "c.opencvec.exemple.fr"
 	tok := signer(t).New(1, 2)
 	cases := []struct {
-		name      string
-		inZone    bool
-		tok, pt   string
+		name    string
+		inZone  bool
+		tok, pt string
 	}{
 		{"p3." + tok + "." + zone + ".", true, tok, "p3"},
 		{strings.ToUpper(tok) + ".C.OPENCVEC.EXEMPLE.FR", true, tok, ""},

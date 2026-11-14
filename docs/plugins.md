@@ -1,128 +1,130 @@
-# Écrire, signer et publier un plugin
+# Writing, signing and publishing a plugin
 
-Un plugin ajoute un check à OpenCVEC sans mettre à jour l'application. Exemple : une CVE vient de sortir, l'équipe OpenCVEC publie `nouvelle-cve.yaml` et sa signature sur GitHub, et chaque entreprise l'installe depuis **Plugins › Catalogue officiel**.
+A plugin adds a check to OpenCVEC without updating the application. Example: a new CVE comes out, the OpenCVEC team publishes `new-cve.yaml` and its signature on GitHub, and every organization installs it from **Plugins › Official catalog**.
 
-## Principes imposés par le moteur
+## Rules enforced by the engine
 
-- **Le plugin ne choisit pas sa cible.** Une étape HTTP donne un *chemin* (`/x/y`), une étape TCP un *port*. L'hôte est toujours l'asset du check, dont la propriété a été prouvée, et la garde réseau vérifie l'IP contactée.
-- **La preuve passe par un canari.** Deux familles de preuve existent :
-  - en mode `canary`, la cible résout `{{canary.dns.pN}}` ou appelle `{{canary.url.pN}}`, ou bien le contenu du canari fichier revient dans une réponse ou par exfiltration DNS ;
-  - en mode `fingerprint`, aucune charge n'est envoyée : seule l'empreinte (version, bannière) est comparée aux versions corrigées.
-- **Rien n'est conservé des réponses** : seules les valeurs extraites et la présence du jeton sont enregistrées.
-- **Champs inconnus refusés**, variables limitées à la liste ci-dessous, et taille maximale de 256 Kio.
+- **A plugin does not choose its target.** An HTTP step gives a *path* (`/x/y`), a TCP step gives a *port*. The host is always the asset of the check, whose ownership has been proven, and the network guard checks the IP being contacted.
+- **Proof goes through a canary.** There are two families of proof:
+  - in `canary` mode, the target resolves `{{canary.dns.pN}}` or calls `{{canary.url.pN}}`, or the content of the canary file comes back in a response or through DNS exfiltration;
+  - in `fingerprint` mode, no payload is sent: only the fingerprint (version, banner) is compared with patched versions.
+- **Nothing from responses is stored**, only the extracted values and whether the token was found.
+- **Unknown fields are rejected**, variables are limited to the list below, and the maximum size is 256 KiB.
 
-Le contenu du plugin est affiché en entier à l'administrateur avant installation.
+The full plugin content is shown to the administrator before installation.
 
-## Canari fichier
+## Canary file
 
-Pour les failles qui donnent accès au système de fichiers ou à l'exécution de code, l'entreprise dépose sur l'asset un **canari fichier** depuis la fiche de l'asset. C'est un fichier dont le contenu est un jeton unique, inconnu de l'extérieur. Le plugin exploite la faille *uniquement* pour lire ce fichier :
+For flaws that give access to the file system or to code execution, the organization plants a **canary file** on the asset from the asset page. Its content is a unique token unknown to the outside. The plugin exploits the flaw *only* to read this file:
 
-- `proofs.file_in_response: true` : le jeton apparaît dans une réponse (lecture de fichier, exécution avec sortie visible) ;
-- `proofs.file_callback: true` : la cible exfiltre le jeton par DNS, par exemple `getent hosts $(cat {{canary.file.path}}).<zone>`, pour les exécutions de code « aveugles ».
+- `proofs.file_in_response: true`: the token appears in a response (file read, code execution with visible output);
+- `proofs.file_callback: true`: the target exfiltrates the token through DNS, for example `getent hosts $(cat {{canary.file.path}}).<zone>`, for "blind" code execution.
 
-Le même fichier sert de **jeton piège** : s'il est lu en dehors d'un check, OpenCVEC lève une alerte de compromission.
+The same file also works as a **honeytoken**: if it is read outside a check, OpenCVEC raises a compromise alert.
 
 ## Format
 
 ```yaml
-id: exemple-cve-2099-0001        # minuscules, chiffres, tirets (3 à 63)
-name: ExempleChecker
-version: 1.0.0                   # x.y.z ; incrémenter à chaque publication
-author: Votre équipe
+id: example-cve-2099-0001        # lowercase, digits, hyphens (3 to 63)
+name: ExampleChecker
+version: 1.0.0                   # x.y.z; increment on every release
+author: Your team
 cves: [CVE-2099-0001]
-product: Produit X 1.0 à 1.4
-description: Ce que vérifie le plugin et dans quelles conditions la faille est exploitable.
-mode: canary                     # canary ou fingerprint
-proof: Requête DNS sur le canari
-sent: Description honnête de ce qui est envoyé à la cible (affichée avant installation et dans les rapports).
-remediation: [Mettre à jour en 1.5, …]
+product: Product X 1.0 to 1.4
+description: What the plugin checks and under which conditions the flaw is exploitable.
+mode: canary                     # canary or fingerprint
+proof: DNS request to the canary
+sent: Honest description of what is sent to the target (shown before installation and in reports).
+remediation: [Upgrade to 1.5, …]
 references: [https://…]
-tags: [produitx]                 # sert aux suggestions selon les tags des assets
-default_port: 8443               # port des étapes TCP (sinon port de l'URL cible)
+tags: [productx]                 # used for suggestions based on asset tags
+default_port: 8443               # port of TCP steps (otherwise the target URL port)
 
 steps:
   - id: injection
     http:
-      method: POST               # GET par défaut
+      method: POST               # GET by default
       path: "/api/import?url={{canary.url.p1}}"
       headers:
-        X-Custom: "{{canary.dns.p2}}"   # casse conservée telle qu'écrite
+        X-Custom: "{{canary.dns.p2}}"   # case preserved as written
       body: "…"
-  - id: banniere
+  - id: banner
     tcp:
-      port: 22                   # facultatif
+      port: 22                   # optional
       tls: false
-      send: "HELLO\r\n"          # ou send_hex: "16 03 01 …"
+      send: "HELLO\r\n"          # or send_hex: "16 03 01 …"
       read_bytes: 256
       timeout: 5s
 
-proofs:                          # mode canary uniquement
+proofs:                          # canary mode only
   callback: true
   file_in_response: false
   file_callback: false
 ```
 
-En mode `fingerprint`, les extractions alimentent une règle de version ou des matchers :
+In `fingerprint` mode, extractions feed a version rule or matchers:
 
 ```yaml
 extract:
   - name: version
-    step: banniere
-    part: body                   # body, status, all, header:<Nom>
-    regex: 'ProduitX/([0-9]+)\.([0-9]+)\.([0-9]+)'
+    step: banner
+    part: body                   # body, status, all, header:<Name>
+    regex: 'ProductX/([0-9]+)\.([0-9]+)\.([0-9]+)'
     format: "{1}.{2}.{3}"
 version_rule:
   var: version
   vulnerable:
     - range: ">=1.0, <1.5"
-      message: "ProduitX {{version}} : vulnérable d'après sa version."
-  patched_message: "ProduitX {{version}} : version corrigée."
-  missing_message: "Version non exposée."
-matchers:                        # évalués avant version_rule ; premier qui correspond
-  - step: banniere
+      message: "ProductX {{version}}: vulnerable according to its version."
+  patched_message: "ProductX {{version}}: patched version."
+  missing_message: "Version not exposed."
+matchers:                        # evaluated before version_rule; first match wins
+  - step: banner
     status: [200]
-    contains: ["produitx-admin"]
+    contains: ["productx-admin"]
     verdict: exposed             # probable, exposed, patched, inconclusive
-    message: "Console d'administration exposée."
+    message: "Admin console exposed."
 ```
+
+Messages shown in the interface are free text. The official plugins are written in French because the interface is in French.
 
 ### Variables
 
-| Variable | Valeur |
+| Variable | Value |
 |---|---|
-| `{{canary.dns.p1}}` … `{{canary.dns.p99}}` | nom DNS unique du point d'injection |
-| `{{canary.url.pN}}` | `http://<nom du point>/` (récepteur HTTP) |
-| `{{canary.file.path}}` | chemin du canari fichier déposé sur l'asset |
-| `{{target.host}}`, `{{target.port}}`, `{{target.base}}`, `{{target.path}}`, `{{target.url}}` | URL cible du check |
-| `{{random}}` | 12 caractères hexadécimaux aléatoires |
+| `{{canary.dns.p1}}` … `{{canary.dns.p99}}` | unique DNS name for the injection point |
+| `{{canary.url.pN}}` | `http://<point name>/` (HTTP receiver) |
+| `{{canary.file.path}}` | path of the canary file planted on the asset |
+| `{{target.host}}`, `{{target.port}}`, `{{target.base}}`, `{{target.path}}`, `{{target.url}}` | target URL of the check |
+| `{{random}}` | 12 random hexadecimal characters |
 
-Les messages des règles et matchers peuvent citer les valeurs extraites (`{{version}}`).
+Rule and matcher messages can reference extracted values (`{{version}}`).
 
-## Tester, signer, publier
+## Test, sign, publish
 
 ```sh
-opencvec plugin lint mon-plugin.yaml                  # format et règles de sûreté
-opencvec plugin keygen ~/.opencvec/keys/mon-equipe     # une fois : clé privée à garder secrète
-opencvec plugin sign ~/.opencvec/keys/mon-equipe.key mon-plugin.yaml
-opencvec plugin verify ~/.opencvec/keys/mon-equipe.pub mon-plugin.yaml
-opencvec plugin index plugins/                         # met à jour index.json du dépôt
+opencvec plugin lint my-plugin.yaml                   # format and safety rules
+opencvec plugin keygen ~/.opencvec/keys/my-team        # once: keep the private key secret
+opencvec plugin sign ~/.opencvec/keys/my-team.key my-plugin.yaml
+opencvec plugin verify ~/.opencvec/keys/my-team.pub my-plugin.yaml
+opencvec plugin index plugins/                         # updates the repository index.json
 ```
 
-Pour tester sans signer, un administrateur peut activer temporairement le **mode développeur** (Administration › Récepteur canari et limites). L'activation et chaque installation non signée sont journalisées.
+To test without signing, an administrator can temporarily enable **developer mode** (Administration › Canary receiver and limits). Turning it on and every unsigned installation are logged.
 
-Pour publier un plugin interne, ajoutez la clé publique de votre équipe dans **Plugins › Éditeurs de confiance**, puis installez le plugin par URL ou par fichier. Le catalogue officiel est lu à l'adresse `OPENCVEC_PLUGIN_REGISTRY`, qui doit contenir `index.json`, les `.yaml` et les `.sig`.
+To publish an internal plugin, add your team's public key in **Plugins › Trusted publishers**, then install the plugin by URL or by file. The official catalog is read from `OPENCVEC_PLUGIN_REGISTRY`, which must contain `index.json`, the `.yaml` files and the `.sig` files.
 
-## Validation en labo
+## Lab validation
 
-Chaque plugin officiel doit donner le verdict attendu sur une cible vulnérable **et** sur une cible corrigée. Ajoutez les cibles dans `lab/compose.yaml` et les cas dans `scripts/lab-plugins-e2e.sh`. Les plugins actuels ont été validés ainsi le 14/11/2026.
+Each official plugin must give the expected verdict on a vulnerable target **and** on a patched one. Add targets to `lab/compose.yaml` and cases to `scripts/lab-plugins-e2e.sh`. The current plugins were validated this way on 2026-11-14.
 
-| Plugin | Vulnérable | Corrigé |
+| Plugin | Vulnerable | Patched |
 |---|---|---|
-| ApacheTraversal (CVE-2021-41773) | httpd 2.4.49 avec `Require all granted` sur `/` : prouvé | httpd 2.4.51 : non concluant |
-| SpringFunction (CVE-2022-22963) | Spring Cloud Function 3.2.2 : prouvé | aucune image corrigée testée |
-| RegreSSHion (CVE-2024-6387) | OpenSSH 9.6 : probable | OpenSSH 9.9 : version corrigée |
+| ApacheTraversal (CVE-2021-41773) | httpd 2.4.49 with `Require all granted` on `/`: proven | httpd 2.4.51: inconclusive |
+| SpringFunction (CVE-2022-22963) | Spring Cloud Function 3.2.2: proven | no patched image tested |
+| RegreSSHion (CVE-2024-6387) | OpenSSH 9.6: probable | OpenSSH 9.9: patched |
 
-Le labo a corrigé trois erreurs que les tests unitaires ne voyaient pas :
-- Spring lit un en-tête en respectant la casse, alors que Go la canonicalise ;
-- Alpine affiche « OpenSSH_9.6 » sans suffixe « p1 » ;
-- Apache 2.4.49 n'est pas exploitable dans sa configuration d'origine.
+The lab caught three mistakes that unit tests missed:
+- Spring reads a header case-sensitively, while Go canonicalizes header names;
+- Alpine prints "OpenSSH_9.6" without the "p1" suffix;
+- Apache 2.4.49 is not exploitable in its default configuration.

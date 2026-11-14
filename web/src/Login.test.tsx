@@ -4,7 +4,9 @@ import { Login } from './pages/Login'
 
 describe('Login', () => {
   it('passe à l’étape TOTP quand le serveur la demande', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"mfa_required":true}', { status: 200 })))
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url === '/api/health'
+      ? new Response('{"status":"ok","version":"v0.1.0"}', { status: 200 })
+      : new Response('{"mfa_required":true}', { status: 200 })))
     const done = vi.fn()
     render(<Login onDone={done} />)
     fireEvent.change(screen.getByLabelText('Adresse e-mail'), { target: { value: 'a@b.fr' } })
@@ -14,7 +16,9 @@ describe('Login', () => {
     expect(done).not.toHaveBeenCalled()
   })
   it('affiche l’erreur de connexion', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"error":"adresse e-mail ou mot de passe incorrect"}', { status: 401 })))
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url === '/api/health'
+      ? new Response('{"status":"ok","version":"v0.1.0"}', { status: 200 })
+      : new Response('{"error":"adresse e-mail ou mot de passe incorrect"}', { status: 401 })))
     render(<Login onDone={vi.fn()} />)
     fireEvent.change(screen.getByLabelText('Adresse e-mail'), { target: { value: 'a@b.fr' } })
     fireEvent.change(screen.getByLabelText('Mot de passe'), { target: { value: 'x' } })

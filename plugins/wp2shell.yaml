@@ -1,0 +1,59 @@
+id: wp2shell
+name: WP2ShellChecker
+version: 2.0.0
+author: OpenCVEC
+cves: [CVE-2026-63030, CVE-2026-60137]
+product: WordPress 6.8.0 à 6.8.5, 6.9.0 à 6.9.4, 7.0.0 à 7.0.1
+description: >-
+  Détermine la version de WordPress (balise generator de la page d'accueil, puis flux RSS si elle
+  est absente) et la compare aux versions corrigées. La chaîne mène à une exécution de code sans
+  authentification ; elle n'est jamais déclenchée.
+mode: fingerprint
+proof: Empreinte de version (verdict « probable » au mieux)
+sent: "Une ou deux requêtes GET ordinaires : la page d'accueil, puis /feed/ si nécessaire."
+remediation:
+  - "Mettre WordPress à jour : 6.8.6, 6.9.5 ou 7.0.2 au minimum."
+  - Vérifier que la mise à jour automatique forcée a bien été appliquée.
+  - Rechercher des comptes administrateurs ou extensions inconnus créés depuis juillet 2026.
+references:
+  - https://www.rapid7.com/blog/post/etr-cve-2026-63030-wp2shell-a-critical-remote-code-execution-vulnerability-in-wordpress-core/
+  - https://www.vulncheck.com/blog/wp2shell
+tags: [wordpress, php]
+lab_validated: false
+lab_note: À revalider après migration en plugin.
+steps:
+  - id: home
+    http:
+      method: GET
+  - id: feed
+    when: {missing: version}
+    http:
+      method: GET
+      path: "{{target.dir}}/feed/"
+extract:
+  - name: version
+    step: home
+    regex: '(?i)<meta[^>]+name=["'']generator["''][^>]+content=["'']WordPress\s+(\d+\.\d+(?:\.\d+)?)'
+  - name: version
+    step: feed
+    regex: '(?i)<generator>https?://wordpress\.org/\?v=(\d+\.\d+(?:\.\d+)?)</generator>'
+matchers:
+  - step: home
+    when: {missing: version}
+    contains: ["/wp-content/", "/wp-includes/"]
+    verdict: inconclusive
+    message: "WordPress détecté, mais sa version est masquée : vérifier depuis l'administration."
+version_rule:
+  var: version
+  vulnerable:
+    - range: "<6.8"
+      verdict: inconclusive
+      message: "WordPress {{version}} : branche antérieure non décrite par l'avis, et obsolète : mettre à jour."
+    - range: ">=6.8, <6.8.6"
+      message: "WordPress {{version}} : exposé à l'injection SQL CVE-2026-60137 (pas à la chaîne complète). Corrigé en 6.8.6."
+    - range: ">=6.9, <6.9.5"
+      message: "WordPress {{version}} : chaîne wp2shell complète (exécution de code sans authentification). Corrigé en 6.9.5."
+    - range: ">=7.0, <7.0.2"
+      message: "WordPress {{version}} : chaîne wp2shell complète (exécution de code sans authentification). Corrigé en 7.0.2."
+  patched_message: "WordPress {{version}} : version corrigée."
+  missing_message: WordPress non détecté sur cette URL.

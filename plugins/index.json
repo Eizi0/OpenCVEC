@@ -17,6 +17,80 @@
       "sha256": "2725f9a8bef619f61f913435810da5ab46b543d45c7a134d9308c1f00eece386"
     },
     {
+      "id": "confluence-ognl",
+      "name": "ConfluenceChecker",
+      "version": "2.0.0",
+      "cves": [
+        "CVE-2022-26134"
+      ],
+      "mode": "canary",
+      "product": "Atlassian Confluence Server / Data Center (avant 7.4.17, 7.13.7, 7.14.3, 7.15.2, 7.16.4, 7.17.4, 7.18.1)",
+      "description": "Place dans l'URL une expression OGNL qui se borne à résoudre le nom du canari (InetAddress.getByName).",
+      "file": "confluence-ognl.yaml",
+      "signature": "confluence-ognl.yaml.sig",
+      "sha256": "9742f95b9a6931778f6ba92f556264fb6287702058b490156c20c465845f01a6"
+    },
+    {
+      "id": "fortibleed",
+      "name": "FortiBleedChecker",
+      "version": "2.0.0",
+      "cves": [
+        "CVE-2026-24858",
+        "CVE-2025-59718",
+        "CVE-2024-55591"
+      ],
+      "mode": "fingerprint",
+      "product": "FortiGate / FortiOS (interfaces d'administration et SSL-VPN)",
+      "description": "« FortiBleed » désigne une campagne de vol d'identifiants, pas une faille unique. Le check repère depuis l'extérieur ce qui l'a rendue possible : une interface d'administration FortiGate ou un portail SSL-VPN joignable. Les CVE listées sont celles que les avis associent à la campagne ; leurs versions ne sont pas visibles de l'extérieur.",
+      "file": "fortibleed.yaml",
+      "signature": "fortibleed.yaml.sig",
+      "sha256": "26f42bfbd6b2c021c3c29f671247a31d5d63b48f8a29e1450d846225335ee4a1"
+    },
+    {
+      "id": "log4shell",
+      "name": "Log4JChecker",
+      "version": "2.0.0",
+      "cves": [
+        "CVE-2021-44228",
+        "CVE-2021-45046"
+      ],
+      "mode": "canary",
+      "product": "Apache Log4j 2 (2.0-beta9 à 2.15.0)",
+      "description": "Place une chaîne de lookup JNDI pointant vers le canari dans les en-têtes, les paramètres et un formulaire. Une application qui journalise ces valeurs avec une version vulnérable de Log4j résout le nom du canari.",
+      "file": "log4shell.yaml",
+      "signature": "log4shell.yaml.sig",
+      "sha256": "53fe7fbf5f51527a29abc7ea21021556ddc3f319b78b00e85cc67e8f6bcdacbe"
+    },
+    {
+      "id": "php-cgi-4577",
+      "name": "PHPCGIChecker",
+      "version": "2.0.0",
+      "cves": [
+        "CVE-2024-4577"
+      ],
+      "mode": "canary",
+      "product": "PHP en mode CGI sous Windows (avant 8.1.29, 8.2.20, 8.3.8)",
+      "description": "Exploite l'injection d'arguments PHP-CGI (tiret doux U+00AD converti en tiret par Windows) pour exécuter une seule instruction : la résolution DNS du canari.",
+      "file": "php-cgi-4577.yaml",
+      "signature": "php-cgi-4577.yaml.sig",
+      "sha256": "6709fe72487c5a866bd7cf146b369faadb4203ba6ed65fbac7514af3a2a796a7"
+    },
+    {
+      "id": "php2shell",
+      "name": "PHP2ShellChecker",
+      "version": "2.0.0",
+      "cves": [
+        "CVE-2026-109618",
+        "CVE-2026-109619"
+      ],
+      "mode": "fingerprint",
+      "product": "PHP 5.4 à 8.5 (corrigé en 8.2.35, 8.3.36, 8.4.27, 8.5.12)",
+      "description": "Lit la version de PHP annoncée par le serveur (en-têtes X-Powered-By ou Server) et la compare aux versions corrigées. Les deux CVE sont des corruptions mémoire exploitées activement : aucune charge n'est envoyée.",
+      "file": "php2shell.yaml",
+      "signature": "php2shell.yaml.sig",
+      "sha256": "c1aa02491e0c77d43d422cea5d9716e2418679f19db25718e4dbfb7fbb03dc39"
+    },
+    {
       "id": "regresshion-6387",
       "name": "RegreSSHionChecker",
       "version": "1.0.1",
@@ -43,6 +117,35 @@
       "file": "spring-cloud-function-cve-2022-22963.yaml",
       "signature": "spring-cloud-function-cve-2022-22963.yaml.sig",
       "sha256": "702e9c33e46748838c74c54eccd55119ad85187082c36deee6afa0576b8a027d"
+    },
+    {
+      "id": "text4shell",
+      "name": "Text4ShellChecker",
+      "version": "2.0.0",
+      "cves": [
+        "CVE-2022-42889"
+      ],
+      "mode": "canary",
+      "product": "Apache Commons Text 1.5 à 1.9",
+      "description": "Injecte une interpolation ${dns:…} dans les paramètres et un formulaire. Une application qui passe ces valeurs à StringSubstitutor avec une version vulnérable résout le canari.",
+      "file": "text4shell.yaml",
+      "signature": "text4shell.yaml.sig",
+      "sha256": "d09ff5ff920629cd1dd7db1dd033230bbb62d16787bdf637a7621df56eb8b5d1"
+    },
+    {
+      "id": "wp2shell",
+      "name": "WP2ShellChecker",
+      "version": "2.0.0",
+      "cves": [
+        "CVE-2026-63030",
+        "CVE-2026-60137"
+      ],
+      "mode": "fingerprint",
+      "product": "WordPress 6.8.0 à 6.8.5, 6.9.0 à 6.9.4, 7.0.0 à 7.0.1",
+      "description": "Détermine la version de WordPress (balise generator de la page d'accueil, puis flux RSS si elle est absente) et la compare aux versions corrigées. La chaîne mène à une exécution de code sans authentification ; elle n'est jamais déclenchée.",
+      "file": "wp2shell.yaml",
+      "signature": "wp2shell.yaml.sig",
+      "sha256": "afa174f2deb12c5b4c22de73d6b6af0b1d37011c04e737c175fd64e906ae15d3"
     }
   ]
 }

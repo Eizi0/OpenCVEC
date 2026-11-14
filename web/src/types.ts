@@ -58,6 +58,7 @@ export interface CheckerInfo {
   source: 'builtin' | 'plugin'
   version?: string
   publisher?: string
+  signed: boolean
   requires_file_canary: boolean
   file_callback: boolean
 }

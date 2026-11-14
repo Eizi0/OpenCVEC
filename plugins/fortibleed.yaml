@@ -1,0 +1,55 @@
+id: fortibleed
+name: FortiBleedChecker
+version: 2.0.0
+author: OpenCVEC
+cves: [CVE-2026-24858, CVE-2025-59718, CVE-2024-55591]
+product: FortiGate / FortiOS (interfaces d'administration et SSL-VPN)
+description: >-
+  « FortiBleed » désigne une campagne de vol d'identifiants, pas une faille unique. Le check repère
+  depuis l'extérieur ce qui l'a rendue possible : une interface d'administration FortiGate ou un
+  portail SSL-VPN joignable. Les CVE listées sont celles que les avis associent à la campagne ;
+  leurs versions ne sont pas visibles de l'extérieur.
+mode: fingerprint
+proof: Exposition constatée (verdict « exposé »)
+sent: "Deux requêtes GET ordinaires : /login et /remote/login."
+remediation:
+  - Restreindre l'administration aux hôtes de confiance (trusted hosts, local-in policy).
+  - Faire tourner les mots de passe des comptes administrateurs et VPN, imposer la double authentification.
+  - Vérifier l'absence de comptes inconnus (show system admin) et appliquer les avis FG-IR-26-060, FG-IR-25-647, FG-IR-24-535.
+  - Désactiver FortiCloud SSO s'il n'est pas utilisé.
+references:
+  - https://www.cyber.gc.ca/en/alerts-advisories/al26-014-fortibleed-leak-thousands-compromised-credentials-impacting-fortinet-devices
+  - https://kudelskisecurity.com/research/fortinet-fortibleed-global-compromise-active-exploitation-of-fortinet-vulnerabilities
+tags: [fortinet, périmètre]
+lab_validated: false
+lab_note: "Détection couverte par les tests ; pas d'image FortiGate libre pour le labo."
+steps:
+  - id: admin
+    http:
+      method: GET
+      path: /login
+  - id: vpn
+    http:
+      method: GET
+      path: /remote/login
+matchers:
+  - step: admin
+    part: all
+    contains: &forti [fgt_lang, ftnt-fortinet-grid, fortinet, fortigate, sslvpn_login, fortitoken, APSCOOKIE, SVPNCOOKIE, SVPNTMPCOOKIE, CCSRFTOKEN, xxxxxxxx-xxxxx]
+    also:
+      - step: vpn
+        part: all
+        contains: *forti
+    verdict: exposed
+    message: "FortiGate exposé sur Internet : interface d'administration et portail SSL-VPN. Vérifier identifiants, double authentification et correctifs."
+  - step: admin
+    part: all
+    contains: *forti
+    verdict: exposed
+    message: "FortiGate exposé sur Internet : interface d'administration. Vérifier identifiants, double authentification et correctifs."
+  - step: vpn
+    part: all
+    contains: *forti
+    verdict: exposed
+    message: "FortiGate exposé sur Internet : portail SSL-VPN. Vérifier identifiants, double authentification et correctifs."
+fallback_message: Aucune interface FortiGate reconnue sur cette URL.

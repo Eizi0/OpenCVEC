@@ -34,14 +34,14 @@ func (c *Checker) Info() checks.Info {
 	if p.Mode == "canary" {
 		mode = checks.ModeCanary
 	}
-	note := "Plugin signé par " + c.Publisher
-	if !c.Signed {
-		note = "Plugin NON SIGNÉ installé en mode développeur"
+	note := p.LabNote
+	if note == "" {
+		note = "Pas de validation en labo documentée."
 	}
 	return checks.Info{
 		ID: p.ID, Name: p.Name, CVEs: p.CVEs, Product: p.Product, Mode: mode, Description: p.Description,
 		Proof: p.Proof, Sent: p.Sent, Remediation: p.Remediation, References: p.References, Tags: p.Tags,
-		LabNote: note, Source: "plugin", Version: p.Version, Publisher: c.Publisher,
+		LabValidated: p.LabValidated, LabNote: note, Source: "plugin", Version: p.Version, Publisher: c.Publisher, Signed: c.Signed,
 		RequiresFileCanary: p.RequiresFileCanary(),
 		FileCallback:       p.Proofs != nil && p.Proofs.FileCallback,
 	}
@@ -126,13 +126,22 @@ func (c *Checker) Run(ctx context.Context, target string, env checks.Env) (check
 	}
 	vars := map[string]string{
 		"target.host": u.Hostname(), "target.port": port, "target.base": u.Scheme + "://" + u.Host,
-		"target.path": u.EscapedPath(), "target.url": target, "random": randomHex(),
+		"target.path": u.EscapedPath(), "target.dir": strings.TrimRight(u.EscapedPath(), "/"),
+		"target.url": target, "random": randomHex(),
+	}
+	if vars["target.path"] == "" {
+		vars["target.path"] = "/"
 	}
 
 	resps := map[string]response{}
 	var points []checks.Point
 	sentAny := false
+	ev := map[string]string{}
+	extracted := map[string]string{}
 	for _, st := range p.Steps {
+		if !st.When.holds(extracted) {
+			continue
+		}
 		pt := checks.Point{ID: st.ID}
 		var r response
 		var err error
@@ -159,6 +168,7 @@ func (c *Checker) Run(ctx context.Context, target string, env checks.Env) (check
 			sentAny = true
 			pt.Status = r.status
 			resps[st.ID] = r
+			extractFrom(p, st.ID, r, extracted, ev)
 			// Preuve dans la bande : le contenu du canari fichier apparaît dans la réponse.
 			if p.Proofs != nil && p.Proofs.FileInResponse && env.File != nil &&
 				strings.Contains(strings.ToLower(r.part("all")), strings.ToLower(env.File.Token)) {
@@ -172,39 +182,13 @@ func (c *Checker) Run(ctx context.Context, target string, env checks.Env) (check
 			}
 		}
 		points = append(points, pt)
+		// Libellés des points de canari de l'étape : le runner s'en sert pour nommer le point déclenché.
+		for _, id := range sortedKeys(st.Points) {
+			points = append(points, checks.Point{ID: id, Location: st.Points[id], Status: pt.Status, Error: pt.Error})
+		}
 	}
 	if !sentAny {
 		return checks.Outcome{Points: points}, fmt.Errorf("aucune étape n'a pu être exécutée : %s", points[0].Error)
-	}
-
-	// Extractions (valeurs seulement : le corps des réponses n'est jamais conservé).
-	ev := map[string]string{}
-	extracted := map[string]string{}
-	for _, e := range p.Extract {
-		r, ok := resps[e.Step]
-		if !ok || extracted[e.Name] != "" {
-			continue
-		}
-		m := regexp.MustCompile(e.Regex).FindStringSubmatch(r.part(e.Part))
-		if m == nil {
-			continue
-		}
-		val := ""
-		if e.Format != "" {
-			val = e.Format
-			for i := len(m) - 1; i >= 0; i-- {
-				val = strings.ReplaceAll(val, "{"+strconv.Itoa(i)+"}", m[i])
-			}
-		} else if len(m) > 1 {
-			val = m[1]
-		} else {
-			val = m[0]
-		}
-		if len(val) > 200 {
-			val = val[:200]
-		}
-		extracted[e.Name] = val
-		ev[e.Name] = val
 	}
 
 	if p.Mode == "canary" {
@@ -221,8 +205,14 @@ func (c *Checker) Run(ctx context.Context, target string, env checks.Env) (check
 
 	// Empreinte : matchers puis règle de version.
 	for _, m := range p.Matchers {
-		r, ok := resps[m.Step]
-		if !ok || !matches(m, r) {
+		if !m.When.holds(extracted) || !condHolds(m.Cond, resps) {
+			continue
+		}
+		all := true
+		for _, c := range m.Also {
+			all = all && condHolds(c, resps)
+		}
+		if !all {
 			continue
 		}
 		return checks.Outcome{Verdict: m.Verdict, Summary: render(m.Message, extracted, env), Points: points, Evidence: ev}, nil
@@ -243,11 +233,15 @@ func (c *Checker) Run(ctx context.Context, target string, env checks.Env) (check
 		for _, rr := range rule.Vulnerable {
 			rg, _ := parseRange(rr.Range)
 			if rg.contains(v) {
+				verdict := rr.Verdict
+				if verdict == "" {
+					verdict = checks.VerdictProbable
+				}
 				msg := rr.Message
 				if msg == "" {
-					msg = fmt.Sprintf("Version %s dans la plage vulnérable %s.", raw, rr.Range)
+					msg = fmt.Sprintf("Version %s dans la plage %s.", raw, rr.Range)
 				}
-				return checks.Outcome{Verdict: checks.VerdictProbable, Summary: render(msg, extracted, env), Points: points, Evidence: ev}, nil
+				return checks.Outcome{Verdict: verdict, Summary: render(msg, extracted, env), Points: points, Evidence: ev}, nil
 			}
 		}
 		msg := rule.Patched
@@ -256,10 +250,62 @@ func (c *Checker) Run(ctx context.Context, target string, env checks.Env) (check
 		}
 		return checks.Outcome{Verdict: checks.VerdictPatched, Summary: render(msg, extracted, env), Points: points, Evidence: ev}, nil
 	}
-	return checks.Outcome{Verdict: checks.VerdictInconclusive, Summary: "Aucune condition du plugin n'est remplie.", Points: points, Evidence: ev}, nil
+	msg := p.Fallback
+	if msg == "" {
+		msg = "Aucune condition du plugin n'est remplie."
+	}
+	return checks.Outcome{Verdict: checks.VerdictInconclusive, Summary: render(msg, extracted, env), Points: points, Evidence: ev}, nil
 }
 
-func matches(m Matcher, r response) bool {
+// extractFrom applique les extractions d'une étape (la première valeur trouvée est gardée).
+func extractFrom(p *Plugin, step string, r response, extracted, ev map[string]string) {
+	for _, e := range p.Extract {
+		if e.Step != step || extracted[e.Name] != "" {
+			continue
+		}
+		m := regexp.MustCompile(e.Regex).FindStringSubmatch(r.part(e.Part))
+		if m == nil {
+			continue
+		}
+		val := ""
+		switch {
+		case e.Format != "":
+			val = e.Format
+			for i := len(m) - 1; i >= 0; i-- {
+				val = strings.ReplaceAll(val, "{"+strconv.Itoa(i)+"}", m[i])
+			}
+		case len(m) > 1:
+			val = m[1]
+		default:
+			val = m[0]
+		}
+		if len(val) > 200 {
+			val = val[:200]
+		}
+		extracted[e.Name] = val
+		ev[e.Name] = val
+	}
+}
+
+func sortedKeys(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a, _ := strconv.Atoi(out[i][1:])
+		b, _ := strconv.Atoi(out[j][1:])
+		return a < b
+	})
+	return out
+}
+
+func condHolds(c Cond, resps map[string]response) bool {
+	r, ok := resps[c.Step]
+	return ok && matches(c, r)
+}
+
+func matches(m Cond, r response) bool {
 	if len(m.Status) > 0 {
 		ok := false
 		for _, s := range m.Status {

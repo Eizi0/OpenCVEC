@@ -107,9 +107,15 @@ func (s *Store) Install(ctx context.Context, data []byte, sig, source string, us
 		ON CONFLICT (id) DO UPDATE SET version = EXCLUDED.version, name = EXCLUDED.name, content = EXCLUDED.content,
 			signature = EXCLUDED.signature, sha256 = EXCLUDED.sha256, publisher = EXCLUDED.publisher, signed = EXCLUDED.signed,
 			enabled = true, source = EXCLUDED.source, installed_by = EXCLUDED.installed_by, installed_at = now()`,
-		c.Plugin.ID, c.Plugin.Version, c.Plugin.Name, data, strings.TrimSpace(sig), c.SHA256, c.Publisher, c.Signed, source, userID)
+		c.Plugin.ID, c.Plugin.Version, c.Plugin.Name, data, strings.TrimSpace(sig), c.SHA256, c.Publisher, c.Signed, source, nullID(userID))
 	if err != nil {
 		return c, err
+	}
+	if userID != 0 {
+		// Une installation manuelle annule une désinstallation volontaire antérieure.
+		if err := s.setRemoved(ctx, c.Plugin.ID, false); err != nil {
+			return c, err
+		}
 	}
 	return c, checks.Register(&Checker{P: c.Plugin, Publisher: c.Publisher, Signed: c.Signed})
 }
@@ -139,7 +145,15 @@ func (s *Store) Remove(ctx context.Context, id string) error {
 		return pgx.ErrNoRows
 	}
 	checks.Unregister(id)
-	return nil
+	// Retenu pour que la préinstallation ne le réinstalle pas au prochain démarrage.
+	return s.setRemoved(ctx, id, true)
+}
+
+func nullID(id int64) *int64 {
+	if id == 0 {
+		return nil
+	}
+	return &id
 }
 
 // Load (re)charge tous les plugins actifs. La signature est revérifiée à chaque chargement :

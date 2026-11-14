@@ -1,0 +1,62 @@
+id: php2shell
+name: PHP2ShellChecker
+version: 2.0.0
+author: OpenCVEC
+cves: [CVE-2026-109618, CVE-2026-109619]
+product: PHP 5.4 à 8.5 (corrigé en 8.2.35, 8.3.36, 8.4.27, 8.5.12)
+description: >-
+  Lit la version de PHP annoncée par le serveur (en-têtes X-Powered-By ou Server) et la compare
+  aux versions corrigées. Les deux CVE sont des corruptions mémoire exploitées activement : aucune
+  charge n'est envoyée.
+mode: fingerprint
+proof: Empreinte de version (verdict « probable » au mieux)
+sent: Une requête GET ordinaire sur l'URL cible.
+remediation:
+  - "Mettre PHP à jour : 8.2.35, 8.3.36, 8.4.27 ou 8.5.12 au minimum."
+  - "Les branches 8.1 et antérieures ne reçoivent pas de correctif : migrer."
+  - "Une distribution peut avoir rétroporté le correctif sans changer le numéro : vérifier le paquet installé."
+  - Désactiver expose_php pour ne plus annoncer la version.
+references:
+  - https://blog.qualys.com/vulnerabilities-threat-research/2026/10/20/php-announces-critical-security-release-for-two-vulnerabilities
+  - https://unit42.paloaltonetworks.com/cve-2026-109618-cve-2026-109619/
+tags: [php]
+lab_validated: false
+lab_note: À revalider après migration en plugin.
+steps:
+  - id: home
+    http:
+      method: GET
+extract:
+  - name: x_powered_by
+    step: home
+    part: header:X-Powered-By
+    regex: '(.+)'
+  - name: version
+    step: home
+    part: header:X-Powered-By
+    regex: '(?i)PHP/(\d+\.\d+(?:\.\d+)?)'
+  - name: version
+    step: home
+    part: header:Server
+    regex: '(?i)PHP/(\d+\.\d+(?:\.\d+)?)'
+version_rule:
+  var: version
+  vulnerable:
+    - range: "<5.4"
+      verdict: inconclusive
+      message: "PHP {{version}} : antérieur à la plage décrite par l'avis (5.4+), obsolète de toute façon."
+    - range: ">=5.4, <8.2"
+      message: "PHP {{version}} annoncé : branche sans correctif publié, vulnérable sauf rétroportage."
+    - range: ">=8.2, <8.2.35"
+      message: "PHP {{version}} annoncé : vulnérable d'après sa version (corrigé en 8.2.35)."
+    - range: ">=8.3, <8.3.36"
+      message: "PHP {{version}} annoncé : vulnérable d'après sa version (corrigé en 8.3.36)."
+    - range: ">=8.4, <8.4.27"
+      message: "PHP {{version}} annoncé : vulnérable d'après sa version (corrigé en 8.4.27)."
+    - range: ">=8.5, <8.5.12"
+      message: "PHP {{version}} annoncé : vulnérable d'après sa version (corrigé en 8.5.12)."
+    - range: ">=8.6"
+      verdict: inconclusive
+      message: "PHP {{version}} : branche non couverte par l'avis."
+  patched_message: "PHP {{version}} annoncé : version corrigée."
+  missing_message: "Le serveur n'annonce pas sa version de PHP (expose_php désactivé ou PHP absent)."

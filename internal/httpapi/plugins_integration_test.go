@@ -8,10 +8,12 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/miekg/dns"
 
 	"github.com/Eizi0/OpenCVEC/internal/plugin"
+	officialplugins "github.com/Eizi0/OpenCVEC/plugins"
 )
 
 // publisher crée une clé d'éditeur de test et l'approuve via l'API.
@@ -183,8 +185,14 @@ func TestUnsignedPluginInDevMode(t *testing.T) {
 	admin.json("POST", "/api/plugins", map[string]any{"content": exfilPlugin}, nil, 201)
 	var list []pluginRow
 	admin.json("GET", "/api/plugins", nil, &list, 200)
-	if len(list) != 1 || list[0].Signed {
-		t.Fatalf("plugin non signé attendu : %+v", list)
+	var unsigned *pluginRow
+	for i := range list {
+		if list[i].ID == "test-exfil" {
+			unsigned = &list[i]
+		}
+	}
+	if unsigned == nil || unsigned.Signed || len(list) != 11 {
+		t.Fatalf("10 plugins officiels + 1 non signé attendus : %+v", list)
 	}
 	var n int
 	_ = e.db.QueryRow(context.Background(), `SELECT count(*) FROM audit_log WHERE action = 'Mode développeur' OR detail LIKE '%NON SIGNÉ%'`).Scan(&n)
@@ -199,5 +207,48 @@ func TestUnsignedPluginInDevMode(t *testing.T) {
 		if c.ID == "test-exfil" {
 			t.Fatal("plugin non signé encore chargé hors mode développeur")
 		}
+	}
+}
+
+func TestOfficialPreinstall(t *testing.T) {
+	e := newEnv(t) // newEnv préinstalle déjà les plugins officiels
+	ctx := context.Background()
+	admin := e.login("admin@test")
+	store := &plugin.Store{DB: e.db, Log: nil, Official: plugin.OfficialPublicKey}
+
+	var list []pluginRow
+	admin.json("GET", "/api/plugins", nil, &list, 200)
+	if len(list) != 10 {
+		t.Fatalf("10 plugins officiels préinstallés attendus, %d", len(list))
+	}
+	for _, p := range list {
+		if !p.Signed || p.Publisher != plugin.OfficialName || !strings.HasPrefix(p.Source, "préinstallé") {
+			t.Fatalf("plugin préinstallé incorrect : %+v", p)
+		}
+	}
+	// Idempotent : rien à refaire au redémarrage.
+	if done, err := store.Preinstall(ctx, officialplugins.FS); err != nil || len(done) != 0 {
+		t.Fatalf("seconde préinstallation : %v %v", done, err)
+	}
+	// Une désinstallation volontaire est respectée au redémarrage.
+	admin.json("DELETE", "/api/plugins/fortibleed", nil, nil, 200)
+	if done, _ := store.Preinstall(ctx, officialplugins.FS); len(done) != 0 {
+		t.Fatalf("plugin désinstallé réinstallé : %v", done)
+	}
+	// Une version plus ancienne en base est mise à jour.
+	if _, err := e.db.Exec(ctx, `UPDATE plugins SET version = '1.0.0' WHERE id = 'log4shell'`); err != nil {
+		t.Fatal(err)
+	}
+	if done, _ := store.Preinstall(ctx, officialplugins.FS); len(done) != 1 || !strings.HasPrefix(done[0], "log4shell ") {
+		t.Fatalf("mise à jour attendue : %v", done)
+	}
+	// Un binaire dont un plugin officiel a été altéré est refusé.
+	altered := fstest.MapFS{}
+	data, _ := officialplugins.FS.ReadFile("log4shell.yaml")
+	sig, _ := officialplugins.FS.ReadFile("log4shell.yaml.sig")
+	altered["log4shell.yaml"] = &fstest.MapFile{Data: append(data, []byte("\n# altéré")...)}
+	altered["log4shell.yaml.sig"] = &fstest.MapFile{Data: sig}
+	if _, err := store.Preinstall(ctx, altered); err == nil {
+		t.Fatal("plugin officiel altéré accepté")
 	}
 }

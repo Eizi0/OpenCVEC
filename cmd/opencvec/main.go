@@ -31,6 +31,7 @@ import (
 	"github.com/Eizi0/OpenCVEC/internal/secrets"
 	"github.com/Eizi0/OpenCVEC/internal/settings"
 	"github.com/Eizi0/OpenCVEC/internal/store"
+	officialplugins "github.com/Eizi0/OpenCVEC/plugins"
 	"github.com/Eizi0/OpenCVEC/web"
 )
 
@@ -258,6 +259,12 @@ func serve() error {
 	plugins := &plugin.Store{DB: st.Pool, Log: log, Official: plugin.OfficialPublicKey}
 	if err := plugins.EnsureOfficial(ctx); err != nil {
 		return err
+	}
+	if done, err := plugins.Preinstall(ctx, officialplugins.FS); err != nil {
+		log.Error("préinstallation des plugins officiels", "err", err)
+	} else if len(done) > 0 {
+		log.Info("plugins officiels installés ou mis à jour", "plugins", strings.Join(done, ", "))
+		_ = auditLog.Write(ctx, nil, "système", "Plugin installé", "préinstallation : "+strings.Join(done, ", "), "")
 	}
 	if gs, err := settings.Load(ctx, st.Pool); err == nil {
 		if err := plugins.Load(ctx, gs.AllowUnsignedPlugins); err != nil {

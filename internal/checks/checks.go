@@ -1,24 +1,21 @@
-// Package checks contient les checkers de CVE.
+// Package checks définit l'interface des checkers et leur registre. Les checkers eux-mêmes sont
+// des plugins (package plugin), préinstallés pour les plugins officiels.
 //
-// Règles communes à tous les modules :
-//   - un checker ne reçoit que l'URL cible et une fonction qui fabrique les noms d'hôte du canari ;
+// Règles communes à tous les checkers :
+//   - un checker ne reçoit que l'URL cible, les canaris et des connexions confinées à l'asset ;
 //     aucun contenu fourni par l'utilisateur n'entre dans un payload ;
-//   - en mode « canary », le seul effet recherché sur la cible est une résolution DNS (ou un appel
-//     HTTP) vers le canari : pas de commande, pas d'écriture, pas d'exfiltration ;
+//   - en mode « canary », le seul effet recherché sur la cible est de toucher un canari : résolution
+//     DNS ou appel HTTP vers le récepteur, ou relecture du canari fichier déposé sur l'asset ;
 //   - en mode « fingerprint », aucune charge n'est envoyée : seule l'empreinte publique (en-têtes,
 //     pages d'accueil) est lue et comparée aux versions corrigées.
 package checks
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"sort"
-	"strings"
 	"sync"
 )
 
@@ -58,6 +55,7 @@ type Info struct {
 	Source    string `json:"source"`
 	Version   string `json:"version,omitempty"`
 	Publisher string `json:"publisher,omitempty"`
+	Signed    bool   `json:"signed"`
 	// RequiresFileCanary : le check exige un canari fichier déposé sur l'asset.
 	RequiresFileCanary bool `json:"requires_file_canary"`
 	// FileCallback : le contenu du canari fichier peut revenir par DNS/HTTP (exfiltration par la cible).
@@ -175,51 +173,4 @@ func All() []Info {
 		return out[i].Name < out[j].Name
 	})
 	return out
-}
-
-const userAgent = "OpenCVEC/0.1 (+verification de vulnerabilite autorisee)"
-
-// send exécute une requête et lit au plus 256 Kio de réponse.
-func send(ctx context.Context, c *http.Client, req *http.Request) (*http.Response, []byte, error) {
-	req = req.WithContext(ctx)
-	if req.Header.Get("User-Agent") == "" {
-		req.Header.Set("User-Agent", userAgent)
-	}
-	resp, err := c.Do(req)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer resp.Body.Close()
-	b, _ := io.ReadAll(io.LimitReader(resp.Body, 256<<10))
-	return resp, b, nil
-}
-
-func joinURL(base, p string) string {
-	return strings.TrimRight(base, "/") + "/" + strings.TrimLeft(p, "/")
-}
-
-func errText(err error) string {
-	if err == nil {
-		return ""
-	}
-	// Une *url.Error répète l'URL complète (avec les payloads) : seule la cause est utile.
-	var ue *url.Error
-	if errors.As(err, &ue) {
-		err = ue.Err
-	}
-	s := err.Error()
-	if len(s) > 200 {
-		s = s[:200] + "…"
-	}
-	return s
-}
-
-// anySent indique si au moins une requête est partie (sinon le check est en erreur).
-func anySent(ps []Point) bool {
-	for _, p := range ps {
-		if p.Error == "" {
-			return true
-		}
-	}
-	return false
 }

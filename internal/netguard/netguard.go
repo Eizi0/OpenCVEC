@@ -123,31 +123,37 @@ func (p Policy) Resolve(ctx context.Context, host string) ([]netip.Addr, error) 
 	return ok, nil
 }
 
+// Dial ouvre une connexion confinée à la politique : l'adresse est résolue, chaque IP est
+// vérifiée, puis la connexion est établie vers l'IP vérifiée (pas de seconde résolution).
+func (p Policy) Dial(ctx context.Context, network, addr string, timeout time.Duration) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	ips, err := p.Resolve(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	dialer := &net.Dialer{Timeout: timeout}
+	var lastErr error
+	for _, ip := range ips {
+		c, err := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+		if err == nil {
+			return c, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
+}
+
 // Client renvoie un client HTTP confiné à la politique : chaque connexion est vérifiée au moment
 // de la numérotation, les redirections ne sont jamais suivies et les certificats ne sont pas
 // vérifiés (les assets internes utilisent souvent des certificats auto-signés).
 func (p Policy) Client(timeout time.Duration) *http.Client {
-	dialer := &net.Dialer{Timeout: timeout}
 	tr := &http.Transport{
 		Proxy: nil,
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			host, port, err := net.SplitHostPort(addr)
-			if err != nil {
-				return nil, err
-			}
-			ips, err := p.Resolve(ctx, host)
-			if err != nil {
-				return nil, err
-			}
-			var lastErr error
-			for _, ip := range ips {
-				c, err := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
-				if err == nil {
-					return c, nil
-				}
-				lastErr = err
-			}
-			return nil, lastErr
+			return p.Dial(ctx, network, addr, timeout)
 		},
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // assets internes auto-signés
 		TLSHandshakeTimeout:   timeout,

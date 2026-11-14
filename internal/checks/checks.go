@@ -12,11 +12,14 @@ package checks
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Mode d'un checker.
@@ -51,6 +54,20 @@ type Info struct {
 	// LabValidated indique que le module a été validé contre une cible réelle du labo (lab/).
 	LabValidated bool   `json:"lab_validated"`
 	LabNote      string `json:"lab_note"`
+	// Source : « builtin » (compilé dans OpenCVEC) ou « plugin » (importé et signé).
+	Source    string `json:"source"`
+	Version   string `json:"version,omitempty"`
+	Publisher string `json:"publisher,omitempty"`
+	// RequiresFileCanary : le check exige un canari fichier déposé sur l'asset.
+	RequiresFileCanary bool `json:"requires_file_canary"`
+	// FileCallback : le contenu du canari fichier peut revenir par DNS/HTTP (exfiltration par la cible).
+	FileCallback bool `json:"file_callback"`
+}
+
+// FileCanary est le canari fichier déposé par l'entreprise sur l'asset.
+type FileCanary struct {
+	Path  string
+	Token string
 }
 
 // Env est tout ce qu'un checker reçoit.
@@ -60,6 +77,10 @@ type Env struct {
 	// CanaryHost renvoie le nom à faire résoudre pour un point d'injection (p1, p2…).
 	// Nil pour un checker d'empreinte.
 	CanaryHost func(point string) string
+	// File est le canari fichier de l'asset (nil s'il n'est pas déposé).
+	File *FileCanary
+	// Dial ouvre une connexion TCP confinée au périmètre de l'asset (étapes TCP des plugins).
+	Dial func(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
 // Outcome est le résultat d'exécution d'un checker.
@@ -86,22 +107,67 @@ type Checker interface {
 	Run(ctx context.Context, target string, env Env) (Outcome, error)
 }
 
-var registry = map[string]Checker{}
+var (
+	regMu    sync.RWMutex
+	registry = map[string]Checker{}
+	builtins = map[string]bool{}
+)
 
-func register(c Checker) { registry[c.Info().ID] = c }
+func register(c Checker) {
+	regMu.Lock()
+	defer regMu.Unlock()
+	registry[c.Info().ID] = c
+	builtins[c.Info().ID] = true
+}
+
+// IsBuiltin indique si un identifiant est réservé par un checker compilé.
+func IsBuiltin(id string) bool {
+	regMu.RLock()
+	defer regMu.RUnlock()
+	return builtins[id]
+}
+
+// Register ajoute ou remplace un checker de plugin ; un identifiant réservé est refusé.
+func Register(c Checker) error {
+	regMu.Lock()
+	defer regMu.Unlock()
+	id := c.Info().ID
+	if builtins[id] {
+		return fmt.Errorf("l'identifiant %q est réservé par un checker intégré", id)
+	}
+	registry[id] = c
+	return nil
+}
+
+// Unregister retire un checker de plugin.
+func Unregister(id string) {
+	regMu.Lock()
+	defer regMu.Unlock()
+	if !builtins[id] {
+		delete(registry, id)
+	}
+}
 
 // Get renvoie un checker par identifiant.
 func Get(id string) (Checker, bool) {
+	regMu.RLock()
+	defer regMu.RUnlock()
 	c, ok := registry[id]
 	return c, ok
 }
 
 // All renvoie le catalogue trié (canari d'abord, puis par nom).
 func All() []Info {
+	regMu.RLock()
 	out := make([]Info, 0, len(registry))
 	for _, c := range registry {
-		out = append(out, c.Info())
+		i := c.Info()
+		if i.Source == "" {
+			i.Source = "builtin"
+		}
+		out = append(out, i)
 	}
+	regMu.RUnlock()
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Mode != out[j].Mode {
 			return out[i].Mode == ModeCanary

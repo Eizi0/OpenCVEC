@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { post } from '../api'
+import { del, post, put } from '../api'
 import { can, useAuth } from '../auth'
 import { CallbackPill, ErrorBox, Loading, ModePill, VerdictPill, useLoad } from '../components/ui'
 import { ago, dateTime, daysLeft, isPending, statusLabel, verdictLabel } from '../format'
@@ -18,6 +18,7 @@ export function Launch() {
   const [picked, setPicked] = useState<Set<string>>(new Set(params.get('checker') ? [params.get('checker')!] : []))
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [repeat, setRepeat] = useState(0)
   const asset = assets?.find((a) => a.id === assetID)
   const { data: fileCanary } = useLoad<FileCanary | null>(assetID ? `/api/assets/${assetID}/canary` : null)
   const needsFile = (c: CheckerInfo) => c.requires_file_canary && !fileCanary
@@ -51,6 +52,9 @@ export function Launch() {
     setError('')
     try {
       const r = await post<{ id: number }>('/api/campaigns', { asset_id: assetID, target_url: target, checkers: [...picked] })
+      if (repeat > 0) {
+        await post('/api/schedules', { asset_id: assetID, target_url: target, checkers: [...picked], every_days: repeat, first_run_in_days: repeat })
+      }
       nav(`/campagnes/${r.id}`)
     } catch (e) {
       setError((e as Error).message)
@@ -122,6 +126,16 @@ export function Launch() {
             <li>Action inscrite au journal d'audit</li>
           </ul>
           <SettingsSummary canaries={canaries} />
+          <div className="field">
+            <label htmlFor="repeat">Répétition</label>
+            <select id="repeat" className="input" value={repeat} onChange={(e) => setRepeat(Number(e.target.value))}>
+              <option value={0}>Une seule fois</option>
+              <option value={7}>Maintenant, puis chaque semaine</option>
+              <option value={30}>Maintenant, puis chaque mois</option>
+              <option value={90}>Maintenant, puis chaque trimestre</option>
+            </select>
+            <p className="hint">Chaque exécution programmée revalide la propriété et respecte les limites, comme un lancement manuel.</p>
+          </div>
           <ErrorBox error={error} />
           <button className="btn primary" type="button" disabled={busy || !asset?.owned || picked.size === 0} onClick={() => void launch()} style={{ minHeight: 46 }}>
             {busy ? 'Revalidation de la propriété…' : `Lancer ${picked.size} check${picked.size > 1 ? 's' : ''}`}
@@ -144,12 +158,15 @@ function SettingsSummary({ canaries }: { canaries: number }) {
   )
 }
 
+interface ScheduleRow { id: number; asset_host: string; checkers: string[]; every_days: number; next_run_at: string; enabled: boolean; created_by: string; last_campaign_id: number | null; last_error: string }
+
 // ---------------------------------------------------------------------------------------------
 
 export function Campaigns() {
   const { me } = useAuth()
   const nav = useNavigate()
   const { data, error } = useLoad<Campaign[]>('/api/campaigns', 5000)
+  const { data: schedules, reload: reloadSchedules } = useLoad<ScheduleRow[]>('/api/schedules')
   return (
     <>
       <header className="page-head">
@@ -160,6 +177,29 @@ export function Campaigns() {
         {can(me.user.role, 'analyst') && <Link className="btn primary" to="/checks/nouveau">Lancer un check</Link>}
       </header>
       <ErrorBox error={error} />
+      {schedules && schedules.length > 0 && (
+        <section className="card">
+          <h2>Checks programmés</h2>
+          <div className="table-wrap">
+            <table className="t" style={{ minWidth: 760 }}>
+              <thead><tr><th>Asset</th><th>Checkers</th><th>Fréquence</th><th>Prochaine exécution</th><th>Dernière</th><th></th></tr></thead>
+              <tbody>{schedules.map((p) => (
+                <tr key={p.id} style={{ opacity: p.enabled ? 1 : 0.55 }}>
+                  <td className="mono">{p.asset_host}<div className="sub">{p.created_by}</div></td>
+                  <td className="small">{p.checkers.join(', ')}</td>
+                  <td>tous les {p.every_days} j</td>
+                  <td className="muted">{p.enabled ? dateTime(p.next_run_at) : 'suspendu'}</td>
+                  <td className="small">{p.last_error ? <span style={{ color: 'var(--red)' }}>{p.last_error}</span> : p.last_campaign_id ? <Link to={`/campagnes/${p.last_campaign_id}`}>campagne #{p.last_campaign_id}</Link> : '—'}</td>
+                  <td>{can(me.user.role, 'analyst') && <div className="btns" style={{ gap: 6 }}>
+                    <button type="button" className="btn small" onClick={async () => { await put(`/api/schedules/${p.id}`, { enabled: !p.enabled }); await reloadSchedules() }}>{p.enabled ? 'Suspendre' : 'Réactiver'}</button>
+                    <button type="button" className="btn small danger" onClick={async () => { if (window.confirm('Supprimer cette programmation ?')) { await del(`/api/schedules/${p.id}`); await reloadSchedules() } }}>Supprimer</button>
+                  </div>}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </section>
+      )}
       {!data ? !error && <Loading /> : (
         <div className="card flush table-wrap">
           <table className="t" style={{ minWidth: 760 }}>

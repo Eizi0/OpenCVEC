@@ -36,6 +36,7 @@ const zone = "c.opencvec.test"
 
 type env struct {
 	t      *testing.T
+	srv    *Server
 	db     *pgxpool.Pool
 	api    *httptest.Server
 	dnsSrv string
@@ -87,7 +88,7 @@ func newEnv(t *testing.T) *env {
 			t.Fatal(err)
 		}
 	}
-	return &env{t: t, db: db, api: api, dnsSrv: pc.LocalAddr().String(), corr: corr, signer: signer}
+	return &env{t: t, srv: srv, db: db, api: api, dnsSrv: pc.LocalAddr().String(), corr: corr, signer: signer}
 }
 
 type client struct {

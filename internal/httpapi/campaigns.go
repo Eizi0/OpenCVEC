@@ -128,18 +128,44 @@ func (s *Server) createCampaign(w http.ResponseWriter, r *http.Request, u *User)
 	if !readJSON(w, r, &in) {
 		return
 	}
-	ctx := r.Context()
-	a, err := s.loadAsset(ctx, in.AssetID)
-	if err != nil {
-		s.fail(w, r, err)
+	cid, proofDetail, le := s.launch(r.Context(), r, u, in.AssetID, in.TargetURL, in.Checkers)
+	if le != nil {
+		if le.err != nil {
+			s.fail(w, r, le.err)
+		} else {
+			writeErr(w, le.status, le.msg)
+		}
 		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"id": cid, "proof": proofDetail})
+}
+
+// launchErr est une erreur de lancement : refus (statut et message) ou erreur interne.
+type launchErr struct {
+	status int
+	msg    string
+	err    error
+}
+
+func (e *launchErr) Error() string {
+	if e.err != nil {
+		return e.err.Error()
+	}
+	return e.msg
+}
+
+// launch applique tous les contrôles (périmètre, limites, revalidation de la propriété) puis crée
+// et met en file une campagne. r peut être nil (check programmé) : l'audit n'a alors pas d'IP.
+func (s *Server) launch(ctx context.Context, r *http.Request, u *User, assetID int64, targetURL string, checkerIDs []string) (int64, string, *launchErr) {
+	a, err := s.loadAsset(ctx, assetID)
+	if err != nil {
+		return 0, "", &launchErr{err: err}
 	}
 	var ids []string
 	seen := map[string]bool{}
-	for _, id := range in.Checkers {
+	for _, id := range checkerIDs {
 		if _, ok := checks.Get(id); !ok {
-			writeErr(w, http.StatusBadRequest, "checker inconnu : "+id)
-			return
+			return 0, "", &launchErr{status: http.StatusBadRequest, msg: "checker inconnu : " + id}
 		}
 		if !seen[id] {
 			seen[id] = true
@@ -147,19 +173,16 @@ func (s *Server) createCampaign(w http.ResponseWriter, r *http.Request, u *User)
 		}
 	}
 	if len(ids) == 0 {
-		writeErr(w, http.StatusBadRequest, "choisissez au moins un checker")
-		return
+		return 0, "", &launchErr{status: http.StatusBadRequest, msg: "choisissez au moins un checker"}
 	}
-	target, err := targetInScope(a, in.TargetURL)
+	target, err := targetInScope(a, targetURL)
 	if err != nil {
 		s.audit(r, u, "Refus", fmt.Sprintf("%s · cible hors périmètre : %s", a.Host, err))
-		writeErr(w, http.StatusBadRequest, err.Error())
-		return
+		return 0, "", &launchErr{status: http.StatusBadRequest, msg: err.Error()}
 	}
 	st, err := settings.Load(ctx, s.DB)
 	if err != nil {
-		s.fail(w, r, err)
-		return
+		return 0, "", &launchErr{err: err}
 	}
 	var perAsset, perUser int
 	_ = s.DB.QueryRow(ctx, `SELECT count(*) FROM checks WHERE asset_id = $1 AND created_at > now() - interval '24 hours'`, a.ID).Scan(&perAsset)
@@ -167,59 +190,50 @@ func (s *Server) createCampaign(w http.ResponseWriter, r *http.Request, u *User)
 		WHERE c.created_by = $1 AND k.created_at > now() - interval '1 hour'`, u.ID).Scan(&perUser)
 	if perAsset+len(ids) > st.ChecksPerAssetDay {
 		s.audit(r, u, "Refus", fmt.Sprintf("limite de débit atteinte · %s (%d/%d sur 24 h)", a.Host, perAsset, st.ChecksPerAssetDay))
-		writeErr(w, http.StatusTooManyRequests, fmt.Sprintf("limite atteinte pour cet asset : %d checks sur 24 h (déjà %d)", st.ChecksPerAssetDay, perAsset))
-		return
+		return 0, "", &launchErr{status: http.StatusTooManyRequests, msg: fmt.Sprintf("limite atteinte pour cet asset : %d checks sur 24 h (déjà %d)", st.ChecksPerAssetDay, perAsset)}
 	}
 	if perUser+len(ids) > st.ChecksPerUserHour {
 		s.audit(r, u, "Refus", fmt.Sprintf("limite de débit utilisateur atteinte (%d/%d sur 1 h)", perUser, st.ChecksPerUserHour))
-		writeErr(w, http.StatusTooManyRequests, fmt.Sprintf("limite atteinte : %d checks par heure et par utilisateur", st.ChecksPerUserHour))
-		return
+		return 0, "", &launchErr{status: http.StatusTooManyRequests, msg: fmt.Sprintf("limite atteinte : %d checks par heure et par utilisateur", st.ChecksPerUserHour)}
 	}
 	// Revalidation de la propriété juste avant l'envoi.
 	if !a.Owned {
 		s.audit(r, u, "Refus", fmt.Sprintf("%s · propriété non prouvée, check bloqué", a.Host))
-		writeErr(w, http.StatusForbidden, "propriété de l'asset non prouvée : aucun check possible")
-		return
+		return 0, "", &launchErr{status: http.StatusForbidden, msg: "propriété de l'asset non prouvée : aucun check possible"}
 	}
 	res, err := s.revalidate(ctx, a)
 	if err != nil {
-		s.fail(w, r, err)
-		return
+		return 0, "", &launchErr{err: err}
 	}
 	if !res.OK {
 		s.audit(r, u, "Refus", fmt.Sprintf("%s · revalidation de la propriété échouée : %s", a.Host, res.Detail))
-		writeErr(w, http.StatusForbidden, "la revalidation de la propriété a échoué : "+res.Detail)
-		return
+		return 0, "", &launchErr{status: http.StatusForbidden, msg: "la revalidation de la propriété a échoué : " + res.Detail}
 	}
 	tx, err := s.DB.Begin(ctx)
 	if err != nil {
-		s.fail(w, r, err)
-		return
+		return 0, "", &launchErr{err: err}
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 	var cid int64
 	if err := tx.QueryRow(ctx, `INSERT INTO campaigns (asset_id, target_url, created_by) VALUES ($1, $2, $3) RETURNING id`, a.ID, target, u.ID).Scan(&cid); err != nil {
-		s.fail(w, r, err)
-		return
+		return 0, "", &launchErr{err: err}
 	}
 	var checkIDs []int64
 	for _, id := range ids {
 		var kid int64
 		if err := tx.QueryRow(ctx, `INSERT INTO checks (campaign_id, asset_id, checker) VALUES ($1, $2, $3) RETURNING id`, cid, a.ID, id).Scan(&kid); err != nil {
-			s.fail(w, r, err)
-			return
+			return 0, "", &launchErr{err: err}
 		}
 		checkIDs = append(checkIDs, kid)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		s.fail(w, r, err)
-		return
+		return 0, "", &launchErr{err: err}
 	}
 	s.audit(r, u, "Check lancé", fmt.Sprintf("campagne #%d · %s · %s · %s", cid, a.Host, target, strings.Join(ids, ", ")))
 	for _, id := range checkIDs {
 		s.Runner.Enqueue(id)
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"id": cid, "proof": res.Detail})
+	return cid, res.Detail, nil
 }
 
 // Campaign est la représentation JSON d'une campagne.

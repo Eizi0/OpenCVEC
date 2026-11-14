@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { post } from '../api'
 import { useAuth } from '../auth'
-import { ErrorBox } from '../components/ui'
+import { CopyButton, ErrorBox, useLoad } from '../components/ui'
+import { dateTime } from '../format'
+import { del } from '../api'
 import { roleLabel } from '../format'
 
 export function Account() {
@@ -88,6 +90,53 @@ export function Account() {
           <div className="btns"><button className="btn primary" type="submit">Modifier</button></div>
         </form>
       </div>
+      <Tokens />
     </>
+  )
+}
+
+interface TokenRow { id: number; name: string; prefix: string; created_at: string; last_used_at: string | null; expires_at: string | null }
+
+function Tokens() {
+  const { data, reload } = useLoad<TokenRow[]>('/api/me/tokens')
+  const [name, setName] = useState('')
+  const [days, setDays] = useState(90)
+  const [created, setCreated] = useState('')
+  const [err, setErr] = useState('')
+  return (
+    <section className="card">
+      <h2>Jetons d'API</h2>
+      <p className="hint">Pour automatiser OpenCVEC (CI, scripts) : en-tête <span className="mono">Authorization: Bearer ocv_…</span>. Un jeton a les droits de votre compte, mais ne peut ni créer d'autres jetons ni modifier votre mot de passe ou votre double authentification.</p>
+      <form className="btns" style={{ alignItems: 'flex-end' }} onSubmit={async (e) => {
+        e.preventDefault()
+        setErr('')
+        try { const r = await post<{ token: string }>('/api/me/tokens', { name, expires_days: days }); setCreated(r.token); setName(''); await reload() } catch (e2) { setErr((e2 as Error).message) }
+      }}>
+        <div className="field" style={{ flex: '2 1 220px' }}><label htmlFor="tn">Nom</label><input id="tn" className="input" required value={name} onChange={(e) => setName(e.target.value)} placeholder="CI nocturne" /></div>
+        <div className="field" style={{ flex: '1 1 140px' }}><label htmlFor="td">Expiration (jours, 0 = jamais)</label><input id="td" className="input" type="number" min={0} max={730} value={days} onChange={(e) => setDays(Number(e.target.value))} /></div>
+        <button className="btn primary" type="submit">Créer</button>
+      </form>
+      <ErrorBox error={err} />
+      {created && (
+        <div className="notice warn" role="status">
+          <strong>Copiez ce jeton maintenant : il ne sera plus affiché.</strong>
+          <div className="btns"><span className="mono break">{created}</span><CopyButton text={created} /></div>
+        </div>
+      )}
+      {data && data.length > 0 && (
+        <div className="table-wrap">
+          <table className="t">
+            <thead><tr><th>Nom</th><th>Préfixe</th><th>Dernière utilisation</th><th>Expiration</th><th></th></tr></thead>
+            <tbody>{data.map((t) => (
+              <tr key={t.id}>
+                <td>{t.name}</td><td className="mono">{t.prefix}…</td><td className="muted">{dateTime(t.last_used_at)}</td>
+                <td className="muted">{t.expires_at ? dateTime(t.expires_at) : 'jamais'}</td>
+                <td><button type="button" className="btn small danger" onClick={async () => { await del(`/api/me/tokens/${t.id}`); await reload() }}>Révoquer</button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }

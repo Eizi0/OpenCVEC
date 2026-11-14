@@ -323,6 +323,7 @@ func serve() error {
 	}
 	srv.Runner = run
 	go maintenance.Run(ctx, st.Pool, log)
+	go srv.RunScheduler(ctx)
 
 	api := &http.Server{Addr: cfg.Addr, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, 1)

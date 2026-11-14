@@ -169,6 +169,9 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (s *Server) changePassword(w http.ResponseWriter, r *http.Request, u *User) {
+	if !sessionOnly(w, r) {
+		return
+	}
 	var in struct {
 		Current string `json:"current"`
 		New     string `json:"new"`
@@ -206,6 +209,9 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request, u *User)
 }
 
 func (s *Server) mfaSetup(w http.ResponseWriter, r *http.Request, u *User) {
+	if !sessionOnly(w, r) {
+		return
+	}
 	if u.TOTPEnabled {
 		writeErr(w, http.StatusConflict, "la double authentification est déjà active")
 		return
@@ -229,6 +235,9 @@ func (s *Server) mfaSetup(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (s *Server) mfaEnable(w http.ResponseWriter, r *http.Request, u *User) {
+	if !sessionOnly(w, r) {
+		return
+	}
 	var in struct {
 		Code string `json:"code"`
 	}
@@ -260,6 +269,9 @@ func (s *Server) mfaEnable(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (s *Server) mfaDisable(w http.ResponseWriter, r *http.Request, u *User) {
+	if !sessionOnly(w, r) {
+		return
+	}
 	if s.Cfg.RequireMFA {
 		writeErr(w, http.StatusForbidden, "la double authentification est imposée sur cette instance")
 		return

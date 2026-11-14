@@ -107,12 +107,16 @@ func (s *Server) Handler() http.Handler {
 	r(RoleViewer, "POST /api/me/mfa/setup", s.mfaSetup)
 	r(RoleViewer, "POST /api/me/mfa/enable", s.mfaEnable)
 	r(RoleViewer, "POST /api/me/mfa/disable", s.mfaDisable)
+	r(RoleViewer, "GET /api/me/tokens", s.listTokens)
+	r(RoleViewer, "POST /api/me/tokens", s.createToken)
+	r(RoleViewer, "DELETE /api/me/tokens/{id}", s.deleteToken)
 	r(RoleViewer, "GET /api/dashboard", s.dashboard)
 	r(RoleViewer, "GET /api/checkers", s.listCheckers)
 	r(RoleViewer, "GET /api/assets", s.listAssets)
 	r(RoleViewer, "GET /api/assets/{id}", s.getAsset)
 	r(RoleViewer, "GET /api/campaigns", s.listCampaigns)
 	r(RoleViewer, "GET /api/campaigns/{id}", s.getCampaign)
+	r(RoleViewer, "GET /api/schedules", s.listSchedules)
 	r(RoleViewer, "GET /api/checks/{id}", s.getCheck)
 	r(RoleViewer, "GET /api/callbacks", s.listCallbacks)
 	r(RoleViewer, "GET /api/reports", s.listReports)
@@ -128,6 +132,9 @@ func (s *Server) Handler() http.Handler {
 	r(RoleAnalyst, "DELETE /api/assets/{id}", s.deleteAsset)
 	r(RoleAnalyst, "POST /api/campaigns", s.createCampaign)
 	r(RoleAnalyst, "POST /api/campaigns/{id}/cancel", s.cancelCampaign)
+	r(RoleAnalyst, "POST /api/schedules", s.createSchedule)
+	r(RoleAnalyst, "PUT /api/schedules/{id}", s.toggleSchedule)
+	r(RoleAnalyst, "DELETE /api/schedules/{id}", s.deleteSchedule)
 	r(RoleAnalyst, "POST /api/reports", s.createReport)
 	r(RoleAnalyst, "POST /api/assets/{id}/canary", s.setFileCanary)
 	r(RoleAnalyst, "DELETE /api/assets/{id}/canary", s.deleteFileCanary)
@@ -182,7 +189,9 @@ func (s *Server) secure(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'none'")
-		if r.Method != http.MethodGet && r.Method != http.MethodHead && strings.HasPrefix(r.URL.Path, "/api/") {
+		// Un jeton d'API (en-tête Authorization) n'est pas envoyé automatiquement par le navigateur :
+		// la protection CSRF ne concerne que les sessions par cookie.
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && strings.HasPrefix(r.URL.Path, "/api/") && bearer(r) == "" {
 			if r.Header.Get(csrfHeader) != "1" {
 				writeErr(w, http.StatusForbidden, "en-tête X-OpenCVEC manquant")
 				return
@@ -195,6 +204,19 @@ func (s *Server) secure(next http.Handler) http.Handler {
 // require vérifie la session et le rôle minimal.
 func (s *Server) require(role string, fn handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if tok := bearer(r); tok != "" {
+			u, ok := s.tokenUser(r, tok)
+			if !ok {
+				writeErr(w, http.StatusUnauthorized, "jeton d'API invalide, expiré ou révoqué")
+				return
+			}
+			if roleRank[u.Role] < roleRank[role] {
+				writeErr(w, http.StatusForbidden, "action réservée au rôle "+roleLabel(role))
+				return
+			}
+			fn(w, r.WithContext(context.WithValue(r.Context(), ctxUser, u)), u)
+			return
+		}
 		c, err := r.Cookie(sessionCookie)
 		if err != nil || c.Value == "" {
 			writeErr(w, http.StatusUnauthorized, "connexion requise")

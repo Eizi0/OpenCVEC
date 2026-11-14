@@ -10,7 +10,7 @@ The tool is designed so that it cannot be turned against a third party:
 
 It targets small-budget teams. It ships as a single 7 MB container that uses about 11 MiB of RAM at idle, plus PostgreSQL, and runs either inside the internal network or on a small VPS (see [docs/deployment.md](docs/deployment.md)). New CVEs are added through **signed plugins**, with no application update.
 
-> The web interface and code comments are currently in French; the documentation is in English.
+> The web interface is available in English and French (switch in the sidebar). Code comments, plugin descriptions and server-generated verdict texts are in French; the documentation is in English.
 
 ## How it works
 
@@ -76,6 +76,14 @@ Possible verdicts: proven, probable, exposed, patched version, inconclusive, err
 - **Signed plugins**: trusted publishers, review before installation, signature re-checked at every load, no response data kept.
 - **Reports**: printable HTML (PDF through the browser) or JSON, with the SHA-256 fingerprint kept by the instance.
 
+## Operations
+
+- **Notifications.** Webhook (generic JSON, Slack, Microsoft Teams) and SMTP email. Events: canary file read outside a check, proven vulnerability, probable or exposed verdict, failed scheduled check. The SMTP password is encrypted at rest and never returned by the API.
+- **Scheduled checks.** Run a check every week, month or quarter. Each run goes through the same controls as a manual launch, on behalf of its author: ownership re-validated, scope, rate limits. A failure is logged and notified, and a schedule whose author is disabled is paused.
+- **API tokens.** Personal tokens (`Authorization: Bearer ocv_…`) to automate OpenCVEC from CI or scripts. A token carries its owner's rights and can expire or be revoked. Only its hash is stored, and it cannot create other tokens or change the password or 2FA. See [docs/api.md](docs/api.md).
+- **Reports** in PDF, HTML or JSON.
+- **Retention.** Receiver noise and reports are purged after a configurable delay (180 days by default). Proofs, alerts, checks and the audit log are always kept.
+
 ## Installation
 
 The full guide is in [docs/deployment.md](docs/deployment.md). It covers two modes:
@@ -86,8 +94,10 @@ Quick start in external mode requires Docker, a domain whose subzone you can del
 
 ```sh
 cp .env.example .env    # then fill in the values
-docker compose up -d
+docker compose up -d    # pulls ghcr.io/eizi0/opencvec (amd64 and arm64)
 ```
+
+Standalone binaries (Linux, macOS, Windows) are attached to each [release](https://github.com/Eizi0/OpenCVEC/releases). They need a PostgreSQL database.
 
 Delegate the canary zone to the server at your registrar:
 
@@ -113,12 +123,13 @@ Put the interface (port 8080) behind an HTTPS reverse proxy, with `OPENCVEC_TRUS
 | `OPENCVEC_NS_NAME` | announced name server | `ns1.<zone>` |
 | `OPENCVEC_DNS_ADDR` / `OPENCVEC_CANARY_HTTP_ADDR` | receiver DNS / HTTP listeners (`off` to disable) | `:5353` / `:8081` |
 | `OPENCVEC_PROOF_RESOLVERS` | resolvers for TXT proofs and the self-test | `1.1.1.1,8.8.8.8,9.9.9.9` |
+| `OPENCVEC_PUBLIC_URL` | interface address, used in notification links | `http://localhost:8080` |
 | `OPENCVEC_PLUGIN_REGISTRY` | official plugin repository (folder containing `index.json`) | `plugins/` folder of this repository |
 | `OPENCVEC_ADMIN_EMAIL` / `OPENCVEC_ADMIN_PASSWORD` | first administrator | `admin@opencvec.local` |
 | `OPENCVEC_REQUIRE_MFA` | enforce two-factor authentication | `false` |
 | `OPENCVEC_TRUST_PROXY`, `OPENCVEC_SECURE_COOKIES` | deployment behind HTTPS | `false` |
 
-Durations (canary lifetime, callback wait), rate limits and developer mode are set in Administration.
+Durations (canary lifetime, callback wait), rate limits, retention, notifications and developer mode are set in Administration.
 
 ## Validation lab
 

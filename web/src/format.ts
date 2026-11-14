@@ -1,3 +1,4 @@
+import { getLang } from './i18n'
 import type { Verdict } from './types'
 
 export const verdictLabel: Record<string, string> = {
@@ -49,8 +50,9 @@ export const kindLabel: Record<string, string> = { domain: 'Domaine', ip: 'Adres
 
 export const roleLabel: Record<string, string> = { admin: 'Administrateur', analyst: 'Analyste', viewer: 'Lecteur' }
 
-const dtf = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'medium' })
-const df = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' })
+const locale = getLang() === 'en' ? 'en-GB' : 'fr-FR'
+const dtf = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'medium' })
+const df = new Intl.DateTimeFormat(locale, { dateStyle: 'short' })
 
 export function dateTime(s: string | null | undefined): string {
   if (!s) return '—'

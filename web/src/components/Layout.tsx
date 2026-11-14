@@ -2,7 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { can, useAuth } from '../auth'
 import { roleLabel } from '../format'
 import type { Receiver } from '../types'
-import { Logo, useLoad } from './ui'
+import { LangSwitch, Logo, useLoad } from './ui'
 
 function initials(s: string) {
   const parts = s.split(/[\s@.]+/).filter(Boolean)
@@ -50,7 +50,10 @@ export function Layout() {
               <span className="small dim">{roleLabel[role]}</span>
             </span>
           </NavLink>
-          <button type="button" className="btn small" onClick={() => void logout()}>Se déconnecter</button>
+          <div className="btns" style={{ gap: 8 }}>
+            <button type="button" className="btn small" onClick={() => void logout()}>Se déconnecter</button>
+            <LangSwitch />
+          </div>
           <span className="small dim" style={{ padding: '0 8px' }}>OpenCVEC {me.version}</span>
         </div>
       </nav>

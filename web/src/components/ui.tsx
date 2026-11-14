@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { api } from '../api'
 import { callbackLabel, verdictLabel, verdictTone } from '../format'
+import { getLang, setLang } from '../i18n'
 
 /** Charge une ressource, avec rechargement manuel et rafraîchissement périodique optionnel. */
 export function useLoad<T>(path: string | null, intervalMs = 0) {
@@ -106,6 +107,17 @@ export function CopyButton({ text }: { text: string }) {
       }}
     >
       {done ? 'Copié' : 'Copier'}
+    </button>
+  )
+}
+
+/** Bascule français / anglais (la page est rechargée). */
+export function LangSwitch() {
+  const lang = getLang()
+  return (
+    <button type="button" className="btn small" data-no-i18n onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+      aria-label={lang === 'fr' ? 'Switch to English' : 'Passer en français'}>
+      {lang === 'fr' ? 'English' : 'Français'}
     </button>
   )
 }

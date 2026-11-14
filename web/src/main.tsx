@@ -7,8 +7,11 @@ import './styles.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { startI18n } from './i18n'
 
-createRoot(document.getElementById('root')!).render(
+const root = document.getElementById('root')!
+startI18n(root)
+createRoot(root).render(
   <StrictMode>
     <App />
   </StrictMode>,

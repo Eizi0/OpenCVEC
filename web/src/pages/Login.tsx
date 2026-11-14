@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { post } from '../api'
-import { Logo } from '../components/ui'
+import { LangSwitch, Logo } from '../components/ui'
 
 export function Login({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState('')
@@ -58,7 +58,10 @@ export function Login({ onDone }: { onDone: () => void }) {
             ))}
           </ol>
         </div>
-        <span className="small dim">Instance auto-hébergée{version ? ` · ${version}` : ''}</span>
+        <div className="btns" style={{ justifyContent: 'space-between' }}>
+          <span className="small dim">Instance auto-hébergée{version ? ` · ${version}` : ''}</span>
+          <LangSwitch />
+        </div>
       </section>
       <section className="login-form">
         <form onSubmit={submit}>

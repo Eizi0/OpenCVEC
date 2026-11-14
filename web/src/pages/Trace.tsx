@@ -35,7 +35,7 @@ export function Callbacks() {
                     <td>{c.proto.toUpperCase()} {c.qtype}</td>
                     <td className="mono break">{c.qname}</td>
                     <td className="mono">{c.source_ip}
-                      {c.source_matches !== null && c.check_id && <div className="sub" style={{ color: c.source_matches ? 'var(--green)' : 'var(--accent)', fontFamily: 'Inter, sans-serif' }}>{c.source_matches ? '= IP de l’asset' : '≠ IP de l’asset (résolveur)'}</div>}
+                      {c.source_matches !== null && c.check_id && <div className="sub" style={{ color: c.source_matches ? 'var(--green)' : 'var(--warn)', fontFamily: 'Inter, sans-serif' }}>{c.source_matches ? '= IP de l’asset' : '≠ IP de l’asset (résolveur)'}</div>}
                     </td>
                     <td className="muted">{c.check_id ? <Link to={`/checks/${c.check_id}`} onClick={(e) => e.stopPropagation()}>{c.asset_host} · {c.checker}</Link> : c.status === 'honeytoken' ? <Link to="/assets" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--red)' }}>canari fichier de {c.asset_host} lu hors check</Link> : c.status === 'unknown' ? 'jeton inconnu ou signature invalide' : c.status === 'selftest' ? 'auto-test du récepteur' : '—'}</td>
                     <td><CallbackPill s={c.status} /></td>
@@ -160,7 +160,7 @@ export function Reports() {
 
 const actionTone: Record<string, string> = {
   'Check lancé': 'yellow', Refus: 'red', 'Connexion refusée': 'red', 'Preuve de propriété': 'green', 'Asset déclaré': 'green',
-  'Liste blanche': 'purple', 'Rôle modifié': 'purple', 'Utilisateur créé': 'purple', 'Réglages modifiés': 'purple',
+  'Liste blanche': 'accent', 'Rôle modifié': 'accent', 'Utilisateur créé': 'accent', 'Réglages modifiés': 'accent',
 }
 
 export function Audit() {

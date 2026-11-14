@@ -145,7 +145,7 @@ var tpl = template.Must(template.New("r").Funcs(template.FuncMap{
 <html lang="fr"><head><meta charset="utf-8"><title>{{.Title}}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-:root{--ink:#14171c;--muted:#5a6472;--line:#d9dee5;--proved:#b3261e;--prob:#6b3fb3;--ok:#1f6f43}
+:root{--ink:#14171c;--muted:#5a6472;--line:#d9dee5;--proved:#b3261e;--prob:#a85a00;--ok:#1f6f43}
 body{font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);margin:0;background:#fff}
 main{max-width:920px;margin:0 auto;padding:40px 28px}
 h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 8px}h3{font-size:15px;margin:16px 0 6px}

@@ -13,8 +13,8 @@ export const verdictLabel: Record<string, string> = {
 
 export const verdictTone: Record<string, string> = {
   proved: 'red',
-  probable: 'purple',
-  exposed: 'purple',
+  probable: 'orange',
+  exposed: 'orange',
   patched: 'green',
   inconclusive: 'blue',
   error: 'gray',

@@ -94,7 +94,7 @@ function Users() {
                       {(['admin', 'analyst', 'viewer'] as Role[]).map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
                     </select>
                   </td>
-                  <td style={{ color: u.totp_enabled ? 'var(--green)' : 'var(--accent)' }}>{u.totp_enabled ? 'Activé' : 'À configurer'}</td>
+                  <td style={{ color: u.totp_enabled ? 'var(--green)' : 'var(--warn)' }}>{u.totp_enabled ? 'Activé' : 'À configurer'}</td>
                   <td className="muted">{dateTime(u.last_login_at)}</td>
                   <td>
                     {u.id !== me.user.id && (
@@ -162,7 +162,7 @@ function Allowlist() {
                     <td className="mono">{r.cidr}</td>
                     <td style={{ color: 'var(--text-2)' }}>{r.reason}</td>
                     <td>{r.added_by}<div className="sub">{dateTime(r.created_at)}</div></td>
-                    <td style={{ color: d <= 0 ? 'var(--red)' : d <= 7 ? 'var(--accent)' : 'var(--muted)' }}>{d <= 0 ? 'expirée' : `dans ${d} j`}</td>
+                    <td style={{ color: d <= 0 ? 'var(--red)' : d <= 7 ? 'var(--warn)' : 'var(--muted)' }}>{d <= 0 ? 'expirée' : `dans ${d} j`}</td>
                     <td><div className="btns" style={{ gap: 6 }}>
                       <button className="btn small" type="button" onClick={async () => { try { await post(`/api/allowlist/${r.id}/renew`); await reload() } catch (e) { setErr((e as Error).message) } }}>Prolonger 30 j</button>
                       <button className="btn small danger" type="button" onClick={async () => {

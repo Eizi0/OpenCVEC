@@ -10,7 +10,7 @@ import (
 )
 
 var verdictRGB = map[string][3]int{
-	"proved": {179, 38, 30}, "probable": {107, 63, 179}, "exposed": {107, 63, 179},
+	"proved": {179, 38, 30}, "probable": {184, 98, 0}, "exposed": {184, 98, 0},
 	"patched": {31, 111, 67}, "inconclusive": {90, 100, 114}, "error": {90, 100, 114},
 }
 

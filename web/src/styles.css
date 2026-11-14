@@ -11,14 +11,22 @@
   --text-2: #c3cbd6;
   --muted: #9aa4b2;
   --dim: #8b95a4;
-  --accent: #f2c94c;
-  --accent-hover: #ffe08a;
-  --accent-ink: #1a1500;
-  --accent-bg: #2a2614;
+  /* Identité : violet du logo. --accent pour textes et liens (lisible sur fond sombre),
+     --accent-strong pour les surfaces pleines (boutons, barres). */
+  --accent: #b48cff;
+  --accent-hover: #cdb2ff;
+  --accent-strong: #8b45f5;
+  --accent-strong-hover: #9d5cff;
+  --accent-ink: #ffffff;
+  --accent-bg: #231736;
+  /* Avertissements et états en attente. */
+  --warn: #f2c94c;
+  --warn-bg: #2e2810;
   --red: #ff8b7d;
   --red-bg: #3a1e1c;
-  --purple: #d4b5ff;
-  --purple-bg: #2b2140;
+  /* Verdict « probable / exposé ». */
+  --orange: #ffb36b;
+  --orange-bg: #3a2814;
   --blue: #8cc8ff;
   --blue-bg: #172a3d;
   --green: #7fd9a8;
@@ -96,8 +104,8 @@ dl.grid dd { margin: 0; min-width: 0; word-break: break-word; }
 /* Boutons */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line-2); background: transparent; color: var(--text); font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap; }
 .btn:hover { background: var(--surface-2); color: var(--text); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.btn.primary:hover { background: var(--accent-hover); }
+.btn.primary { background: var(--accent-strong); border-color: var(--accent-strong); color: var(--accent-ink); font-weight: 600; }
+.btn.primary:hover { background: var(--accent-strong-hover); border-color: var(--accent-strong-hover); color: var(--accent-ink); }
 .btn.danger { color: var(--red); border-color: #4a2623; }
 .btn.small { min-height: 36px; padding: 0 12px; font-size: 13px; border-radius: 8px; }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -127,10 +135,11 @@ textarea.input { padding: 10px 14px; min-height: 80px; }
 /* Pastilles */
 .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .pill.red { color: var(--red); background: var(--red-bg); }
-.pill.purple { color: var(--purple); background: var(--purple-bg); }
+.pill.orange { color: var(--orange); background: var(--orange-bg); }
+.pill.accent { color: var(--accent); background: var(--accent-bg); }
 .pill.blue { color: var(--blue); background: var(--blue-bg); }
 .pill.green { color: var(--green); background: var(--green-bg); }
-.pill.yellow { color: var(--accent); background: #2e2810; }
+.pill.yellow { color: var(--warn); background: var(--warn-bg); }
 .pill.gray { color: var(--gray); background: var(--gray-bg); }
 
 /* Tableaux */
@@ -151,7 +160,7 @@ table.t tr.link:hover td { background: #1a1f27; }
 .notice.err { background: #1e1416; border: 1px solid #4a2623; }
 .notice.err strong { color: var(--red); }
 .notice.warn { background: #221e10; border: 1px solid #4a4020; }
-.notice.warn strong { color: var(--accent); }
+.notice.warn strong { color: var(--warn); }
 .hero-proved { background: #1e1416; border: 1px solid #4a2623; }
 .empty { padding: 28px; text-align: center; color: var(--muted); }
 .steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
@@ -161,7 +170,7 @@ table.t tr.link:hover td { background: #1a1f27; }
 .mark.hit { background: var(--red-bg); color: var(--red); border-color: transparent; }
 .mark.cur { border-color: var(--accent); color: var(--accent); }
 .progress { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
-.progress > div { height: 100%; background: var(--accent); transition: width 0.5s linear; }
+.progress > div { height: 100%; background: var(--accent-strong); transition: width 0.5s linear; }
 .log { font-family: var(--mono); font-size: 12.5px; line-height: 1.9; color: var(--text-2); overflow-x: auto; }
 .log div { white-space: nowrap; }
 .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }

@@ -15,7 +15,7 @@ export function Catalog() {
       <header className="page-head">
         <div>
           <h1>Catalogue des checkers</h1>
-          <p className="lead">Checkers intégrés et plugins installés. Les payloads sont figés dans chaque module : seul le nom d'hôte du canari y est injecté. Les failles qu'on ne peut prouver sans exploit réel (corruption mémoire, chaînes RCE récentes) sont vérifiées par empreinte, sans aucune charge.</p>
+          <p className="lead">Tous les checkers sont des plugins signés : les officiels sont préinstallés, d'autres s'ajoutent depuis la page Plugins. Les payloads sont figés dans chaque module : seul le nom d'hôte du canari y est injecté. Les failles qu'on ne peut prouver sans exploit réel (corruption mémoire, chaînes RCE récentes) sont vérifiées par empreinte, sans aucune charge.</p>
         </div>
       </header>
       <ErrorBox error={error} />

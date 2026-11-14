@@ -48,7 +48,7 @@ export function CallbackPill({ s }: { s: string }) {
 }
 
 export function ModePill({ mode }: { mode: string }) {
-  return mode === 'canary' ? <span className="pill yellow">Canari</span> : <span className="pill purple">Empreinte</span>
+  return mode === 'canary' ? <span className="pill accent">Canari</span> : <span className="pill gray">Empreinte</span>
 }
 
 export function SourcePill({ source, version, publisher, signed = true }: { source: string; version?: string; publisher?: string; signed?: boolean }) {

@@ -83,7 +83,7 @@ export function Launch() {
               return (
                 <button key={a.id} type="button" disabled={!a.owned} onClick={() => a.owned && setAssetID(a.id)} aria-pressed={on}
                   className={`choice ${on ? 'on' : ''}`} style={{ flexDirection: 'row', alignItems: 'center', minHeight: 48, gap: 12, flex: 'none' }}>
-                  <span style={{ width: 16, height: 16, borderRadius: 8, border: `2px solid ${on ? 'var(--accent)' : '#4a5260'}`, background: on ? 'var(--accent)' : 'transparent', flex: 'none' }} />
+                  <span style={{ width: 16, height: 16, borderRadius: 8, border: `2px solid ${on ? 'var(--accent)' : '#4a5260'}`, background: on ? 'var(--accent-strong)' : 'transparent', flex: 'none' }} />
                   <span className="mono" style={{ flex: '1 1 auto' }}>{a.host}</span>
                   <span className="small" style={{ color: a.owned ? 'var(--muted)' : 'var(--red)' }}>{a.owned ? `Prouvée · ${d} j restants` : 'Propriété non prouvée'}</span>
                 </button>
@@ -213,7 +213,7 @@ export function Campaigns() {
                   <td>
                     {c.pending > 0 ? <span className="pill yellow">{c.pending} en cours</span> : c.cancelled ? <span className="pill gray">Annulée</span> : null}{' '}
                     {c.proved > 0 && <span className="pill red">{c.proved} prouvé(s)</span>}{' '}
-                    {c.probable > 0 && <span className="pill purple">{c.probable} probable(s)</span>}{' '}
+                    {c.probable > 0 && <span className="pill orange">{c.probable} probable(s)</span>}{' '}
                     {c.pending === 0 && c.proved === 0 && c.probable === 0 && !c.cancelled && <span className="pill blue">{c.total} sans preuve</span>}
                   </td>
                   <td className="muted">{c.created_by}</td>
@@ -379,7 +379,7 @@ export function CheckResult() {
             {d.canary && (<><dt>Lié à</dt><dd>asset {c.asset_host} · check #{c.id} · campagne #{c.campaign_id} (signature HMAC)</dd></>)}
             {hit && (<>
               <dt>Type de requête</dt><dd>{hit.Proto.toUpperCase()} {hit.QType}</dd>
-              <dt>Source</dt><dd><span className="mono">{hit.Source}</span> <span style={{ color: hit.SourceMatches ? 'var(--green)' : 'var(--accent)' }}>· {hit.SourceMatches ? 'identique à une IP de l’asset' : 'différente des IP de l’asset (résolveur DNS ou sortie NAT : normal)'}</span></dd>
+              <dt>Source</dt><dd><span className="mono">{hit.Source}</span> <span style={{ color: hit.SourceMatches ? 'var(--green)' : 'var(--warn)' }}>· {hit.SourceMatches ? 'identique à une IP de l’asset' : 'différente des IP de l’asset (résolveur DNS ou sortie NAT : normal)'}</span></dd>
               <dt>Point d'injection</dt><dd>{point ? `${point.location} (${point.id})` : hit.Point || '—'}</dd>
             </>)}
             <dt>Envoi</dt><dd>{dateTime(c.sent_at ?? c.started_at)}</dd>

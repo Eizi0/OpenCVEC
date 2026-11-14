@@ -125,8 +125,8 @@ const dict: Record<string, string> = {
   'Nouveau jeton généré : publiez-le puis vérifiez.': 'New token generated: publish it, then verify.',
 
   // Catalogue et plugins
-  "Checkers intégrés et plugins installés. Les payloads sont figés dans chaque module : seul le nom d'hôte du canari y est injecté. Les failles qu'on ne peut prouver sans exploit réel (corruption mémoire, chaînes RCE récentes) sont vérifiées par empreinte, sans aucune charge.":
-    'Installed checkers. Payloads are fixed in each module: only the canary hostname is injected. Flaws that cannot be proven without a real exploit (memory corruption, recent RCE chains) are verified by fingerprint, with no payload.',
+  "Tous les checkers sont des plugins signés : les officiels sont préinstallés, d'autres s'ajoutent depuis la page Plugins. Les payloads sont figés dans chaque module : seul le nom d'hôte du canari y est injecté. Les failles qu'on ne peut prouver sans exploit réel (corruption mémoire, chaînes RCE récentes) sont vérifiées par empreinte, sans aucune charge.":
+    'Every checker is a signed plugin: official ones are preinstalled, others are added from the Plugins page. Payloads are fixed in each module: only the canary hostname is injected. Flaws that cannot be proven without a real exploit (memory corruption, recent RCE chains) are verified by fingerprint, with no payload.',
   'Filtrer par mode': 'Filter by mode', "Canari fichier déposé sur l'asset": 'Canary file planted on the asset',
   'Remédiation et références': 'Remediation and references', 'Utiliser ce checker': 'Use this checker',
   "Ajoutez un check pour une nouvelle CVE sans mettre à jour OpenCVEC. Un plugin est un fichier YAML signé : ses requêtes ne peuvent viser que l'asset du check, et la preuve passe toujours par un canari (callback DNS/HTTP ou canari fichier relu).":

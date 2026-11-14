@@ -41,7 +41,7 @@ export function Dashboard() {
             <div className="card kpi">
               <span className="muted small">Assets à propriété prouvée</span>
               <span className="v">{data.assets_owned}<small> / {data.assets_total}</small></span>
-              <span className="small" style={{ color: data.assets_renew ? 'var(--accent)' : 'var(--muted)' }}>
+              <span className="small" style={{ color: data.assets_renew ? 'var(--warn)' : 'var(--muted)' }}>
                 {data.assets_renew ? `${data.assets_renew} preuve(s) à renouveler sous 7 j` : 'aucune preuve à renouveler'}
               </span>
             </div>
@@ -57,7 +57,7 @@ export function Dashboard() {
             </div>
             <div className="card kpi">
               <span className="muted small">Probables ou exposés</span>
-              <span className="v" style={{ color: 'var(--purple)' }}>{data.probable_30d}</span>
+              <span className="v" style={{ color: 'var(--orange)' }}>{data.probable_30d}</span>
               <span className="small muted">version ou surface exposée, sans preuve active</span>
             </div>
           </section>
@@ -108,7 +108,7 @@ export function Dashboard() {
                   return (
                     <div key={a.id} className="kv">
                       <Link to={`/assets/${a.id}`} className="mono" style={{ color: 'var(--text)' }}>{a.host}</Link>
-                      <span style={{ color: 'var(--accent)' }}>{a.owned && d !== null ? `expire dans ${d} j` : a.proof_status === 'failed' ? 'échec' : 'à prouver'}</span>
+                      <span style={{ color: 'var(--warn)' }}>{a.owned && d !== null ? `expire dans ${d} j` : a.proof_status === 'failed' ? 'échec' : 'à prouver'}</span>
                     </div>
                   )
                 })}

@@ -114,6 +114,15 @@ func atoi(s string) int {
 	return n
 }
 
+func TestWebhookRefusesMetadata(t *testing.T) {
+	c := Defaults
+	c.WebhookURL = "http://169.254.169.254/latest/meta-data/"
+	errs := (&Notifier{}).Deliver(context.Background(), c, Event{Kind: KindTest, Title: "x"})
+	if errs["webhook"] == nil || !strings.Contains(errs["webhook"].Error(), "refusée") {
+		t.Fatalf("métadonnées cloud non bloquées : %v", errs)
+	}
+}
+
 func TestValidate(t *testing.T) {
 	bad := []Config{
 		{WebhookURL: "ftp://x", WebhookFormat: "json", SMTPSecurity: "starttls"},

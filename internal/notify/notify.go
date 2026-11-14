@@ -236,7 +236,11 @@ func (n *Notifier) webhook(ctx context.Context, c Config, ev Event) error {
 	req.Header.Set("User-Agent", "OpenCVEC")
 	cl := n.HTTP
 	if cl == nil {
-		cl = &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		cl = &http.Client{
+			Timeout:       10 * time.Second,
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+			Transport:     &http.Transport{Proxy: http.ProxyFromEnvironment, DialContext: safeDial},
+		}
 	}
 	resp, err := cl.Do(req)
 	if err != nil {
@@ -247,6 +251,34 @@ func (n *Notifier) webhook(ctx context.Context, c Config, ev Event) error {
 		return fmt.Errorf("webhook : HTTP %d", resp.StatusCode)
 	}
 	return nil
+}
+
+// safeDial refuse les adresses de lien local (métadonnées cloud 169.254.169.254, fe80::/10) et
+// non spécifiées : un webhook mal configuré ne doit pas devenir un accès aux métadonnées de l'hôte.
+// Les réseaux internes restent autorisés (SIEM, relais Teams on-premise).
+func safeDial(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	d := &net.Dialer{Timeout: 10 * time.Second}
+	var lastErr error = fmt.Errorf("aucune adresse pour %s", host)
+	for _, ip := range ips {
+		if ip.IP.IsLinkLocalUnicast() || ip.IP.IsLinkLocalMulticast() || ip.IP.IsUnspecified() || ip.IP.IsMulticast() {
+			lastErr = fmt.Errorf("webhook : adresse %s refusée (lien local ou métadonnées)", ip.IP)
+			continue
+		}
+		c, err := d.DialContext(ctx, network, net.JoinHostPort(ip.IP.String(), port))
+		if err == nil {
+			return c, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
 }
 
 func (n *Notifier) email(c Config, ev Event) error {

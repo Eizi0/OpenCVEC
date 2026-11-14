@@ -9,7 +9,7 @@ COPY web/ ./
 RUN npm run build
 
 # Étape 2 : binaire Go (le front est embarqué)
-FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine AS build
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 ARG VERSION=dev

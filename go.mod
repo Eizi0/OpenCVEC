@@ -1,6 +1,6 @@
 module github.com/Eizi0/OpenCVEC
 
-go 1.27.2
+go 1.27.4
 
 require (
 	github.com/go-pdf/fpdf v0.9.0

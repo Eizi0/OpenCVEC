@@ -1,0 +1,51 @@
+# Déploiement : OpenCVEC et PostgreSQL. Voir README.md (délégation DNS de la zone canari).
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: opencvec
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opencvec}
+      POSTGRES_DB: opencvec
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opencvec -d opencvec"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      OPENCVEC_DATABASE_URL: postgres://opencvec:${POSTGRES_PASSWORD:-opencvec}@db:5432/opencvec?sslmode=disable
+      # Clé de chiffrement des secrets au repos (openssl rand -base64 32). À conserver précieusement.
+      OPENCVEC_SECRET_KEY: ${OPENCVEC_SECRET_KEY:-}
+      OPENCVEC_ADMIN_EMAIL: ${OPENCVEC_ADMIN_EMAIL:-admin@opencvec.local}
+      OPENCVEC_ADMIN_PASSWORD: ${OPENCVEC_ADMIN_PASSWORD:-}
+      # Zone déléguée au récepteur et adresse publique de ce serveur (voir README.md).
+      OPENCVEC_CANARY_ZONE: ${OPENCVEC_CANARY_ZONE:-c.opencvec.local}
+      OPENCVEC_CANARY_IP: ${OPENCVEC_CANARY_IP:-127.0.0.1}
+      OPENCVEC_NS_NAME: ${OPENCVEC_NS_NAME:-}
+      OPENCVEC_DNS_ADDR: ":53"
+      OPENCVEC_CANARY_HTTP_ADDR: ":80"
+      OPENCVEC_PROOF_RESOLVERS: ${OPENCVEC_PROOF_RESOLVERS:-1.1.1.1,8.8.8.8,9.9.9.9}
+      # Derrière un proxy inverse HTTPS
+      OPENCVEC_TRUST_PROXY: ${OPENCVEC_TRUST_PROXY:-false}
+      OPENCVEC_SECURE_COOKIES: ${OPENCVEC_SECURE_COOKIES:-false}
+      OPENCVEC_REQUIRE_MFA: ${OPENCVEC_REQUIRE_MFA:-false}
+    # Ports < 1024 sans privilèges root dans le conteneur.
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    ports:
+      - "${OPENCVEC_PORT:-8080}:8080"   # interface (à placer derrière un proxy HTTPS)
+      - "53:53/udp"                     # DNS autoritaire de la zone canari
+      - "53:53/tcp"
+      - "${CANARY_HTTP_PORT:-80}:80"    # récepteur HTTP des callbacks
+    restart: unless-stopped
+
+volumes:
+  db-data:

@@ -1,0 +1,85 @@
+# Labo isolé : OpenCVEC + cibles volontairement vulnérables et leurs versions corrigées.
+# Les cibles résolvent les noms via le DNS autoritaire d'OpenCVEC (172.30.0.10) : aucun
+# trafic de canari ne sort vers Internet. Usage : voir lab/README.md.
+name: opencvec-lab
+
+networks:
+  lab:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: opencvec
+      POSTGRES_PASSWORD: opencvec
+      POSTGRES_DB: opencvec
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opencvec -d opencvec"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [lab]
+
+  opencvec:
+    build: ..
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      OPENCVEC_DATABASE_URL: postgres://opencvec:opencvec@db:5432/opencvec?sslmode=disable
+      OPENCVEC_SECRET_KEY: bGFiby1vcGVuY3ZlYy1jbGUtZGUtdGVzdC0zMi1vY3Q=
+      OPENCVEC_ADMIN_EMAIL: admin@lab.test
+      OPENCVEC_ADMIN_PASSWORD: labo-opencvec-2026
+      OPENCVEC_CANARY_ZONE: c.opencvec.lab
+      OPENCVEC_CANARY_IP: 172.30.0.10
+      OPENCVEC_DNS_ADDR: ":53"
+      OPENCVEC_CANARY_HTTP_ADDR: ":80"
+      OPENCVEC_PROOF_RESOLVERS: 172.30.0.10
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    ports:
+      - "127.0.0.1:8095:8080"
+    networks:
+      lab:
+        ipv4_address: 172.30.0.10
+
+  # Log4Shell : Solr 8.11.0 embarque Log4j 2.14.1 (vulnérable).
+  solr:
+    image: vulhub/solr:8.11.0
+    dns: [172.30.0.10]
+    networks:
+      lab:
+        ipv4_address: 172.30.0.20
+
+  # Log4Shell corrigé : Solr 8.11.2 embarque Log4j 2.17.1.
+  solr-patched:
+    image: solr:8.11.2
+    dns: [172.30.0.10]
+    networks:
+      lab:
+        ipv4_address: 172.30.0.21
+
+  # Text4Shell : commons-text 1.9 (vulnérable) et 1.10.0 (corrigé).
+  text4shell:
+    build: { context: ./text4shell, args: { COMMONS_TEXT: "1.9" } }
+    dns: [172.30.0.10]
+    networks:
+      lab:
+        ipv4_address: 172.30.0.30
+  text4shell-patched:
+    build: { context: ./text4shell, args: { COMMONS_TEXT: "1.10.0" } }
+    dns: [172.30.0.10]
+    networks:
+      lab:
+        ipv4_address: 172.30.0.31
+
+  # PHP2Shell (empreinte) : PHP 8.3 antérieur au correctif 8.3.36.
+  php-old:
+    image: php:8.3.20-apache
+    command: ["sh", "-c", "echo '<?php echo \"ok\";' > /var/www/html/index.php && exec apache2-foreground"]
+    networks:
+      lab:
+        ipv4_address: 172.30.0.40

@@ -5,7 +5,6 @@ package runner
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -230,6 +229,9 @@ func (r *Runner) run(ctx context.Context, id int64) error {
 	defer unsubscribe()
 	env.CanaryHost = func(point string) string { return canary.Host(point, token, r.Zone) }
 
+	// L'heure d'envoi est prise avant la première requête : une cible vulnérable peut résoudre
+	// le canari avant même d'avoir répondu.
+	sent := time.Now()
 	rctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	out, err := c.Run(rctx, j.target, env)
 	cancel()
@@ -239,8 +241,10 @@ func (r *Runner) run(ctx context.Context, id int64) error {
 		r.finish(ctx, id, checks.VerdictError, "Échec de l'envoi : "+err.Error(), d, "error")
 		return nil
 	}
-	sent := time.Now()
-	if err := r.setStatus(ctx, id, "waiting", d, `, sent_at = now()`); err != nil {
+	if err := r.setStatus(ctx, id, "waiting", d, ""); err != nil {
+		return err
+	}
+	if _, err := r.DB.Exec(ctx, `UPDATE checks SET sent_at = $2 WHERE id = $1`, id, sent); err != nil {
 		return err
 	}
 
@@ -264,7 +268,7 @@ func (r *Runner) run(ctx context.Context, id int64) error {
 					where = " via " + p.Location
 				}
 			}
-			summary := fmt.Sprintf("%s : la cible a déclenché le canari (%s %s)%s, %.1f s après l'envoi. %s",
+			summary := fmt.Sprintf("%s : la cible a déclenché le canari (%s %s)%s, %.2f s après le début de l'envoi. %s",
 				info.Name, h.Proto, h.QType, where, float64(d.DeltaMS)/1000, out.Summary)
 			r.finish(ctx, id, checks.VerdictProved, summary, d, "done")
 			return nil
@@ -280,6 +284,3 @@ func (r *Runner) run(ctx context.Context, id int64) error {
 		}
 	}
 }
-
-// ErrBusy est renvoyée si la file est saturée.
-var ErrBusy = errors.New("file d'exécution saturée")

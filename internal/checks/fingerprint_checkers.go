@@ -40,12 +40,12 @@ func (php2shell) Info() Info {
 	return Info{
 		ID: "php2shell", Name: "PHP2ShellChecker", CVEs: []string{"CVE-2026-109618", "CVE-2026-109619"},
 		Product: "PHP 5.4 à 8.5 (corrigé en 8.2.35, 8.3.36, 8.4.27, 8.5.12)", Mode: ModeFingerprint, Tags: []string{"php"},
-		Description: "Lit la version de PHP annoncée par le serveur (en-tête X-Powered-By) et la compare aux versions corrigées. Les deux CVE sont des corruptions mémoire exploitées activement : aucune charge n'est envoyée.",
-		Proof:       "Empreinte de version (verdict « probable » au mieux)",
-		Sent:        "Une requête GET ordinaire sur l'URL cible.",
-		Remediation: []string{"Mettre PHP à jour : 8.2.35, 8.3.36, 8.4.27 ou 8.5.12 au minimum.", "Les branches 8.1 et antérieures ne reçoivent pas de correctif : migrer.", "Une distribution peut avoir rétroporté le correctif sans changer le numéro : vérifier le paquet installé.", "Désactiver expose_php pour ne plus annoncer la version."},
-		References:  []string{"https://blog.qualys.com/vulnerabilities-threat-research/2026/10/20/php-announces-critical-security-release-for-two-vulnerabilities", "https://unit42.paloaltonetworks.com/cve-2026-109618-cve-2026-109619/"},
-		LabNote:     "Comparaison de versions couverte par les tests ; à revalider en labo avec une image php vulnérable.",
+		Description:  "Lit la version de PHP annoncée par le serveur (en-tête X-Powered-By) et la compare aux versions corrigées. Les deux CVE sont des corruptions mémoire exploitées activement : aucune charge n'est envoyée.",
+		Proof:        "Empreinte de version (verdict « probable » au mieux)",
+		Sent:         "Une requête GET ordinaire sur l'URL cible.",
+		Remediation:  []string{"Mettre PHP à jour : 8.2.35, 8.3.36, 8.4.27 ou 8.5.12 au minimum.", "Les branches 8.1 et antérieures ne reçoivent pas de correctif : migrer.", "Une distribution peut avoir rétroporté le correctif sans changer le numéro : vérifier le paquet installé.", "Désactiver expose_php pour ne plus annoncer la version."},
+		References:   []string{"https://blog.qualys.com/vulnerabilities-threat-research/2026/10/20/php-announces-critical-security-release-for-two-vulnerabilities", "https://unit42.paloaltonetworks.com/cve-2026-109618-cve-2026-109619/"},
+		LabValidated: true, LabNote: "Validé le 14/11/2026 sur php:8.3.20-apache (probable) ; table de versions couverte par les tests.",
 	}
 }
 

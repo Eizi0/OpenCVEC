@@ -111,12 +111,12 @@ func (log4shell) Info() Info {
 	return Info{
 		ID: "log4shell", Name: "Log4JChecker", CVEs: []string{"CVE-2021-44228", "CVE-2021-45046"},
 		Product: "Apache Log4j 2 (2.0-beta9 à 2.15.0)", Mode: ModeCanary, Tags: []string{"java", "log4j"},
-		Description: "Place une chaîne de lookup JNDI pointant vers le canari dans les en-têtes, les paramètres et un formulaire. Une application qui journalise ces valeurs avec une version vulnérable de Log4j résout le nom du canari.",
-		Proof:       "Requête DNS sur le canari (lookup JNDI)",
-		Sent:        "${jndi:ldap://<point>.<canari>/a} : le nom est résolu, mais le récepteur n'expose aucun service LDAP, donc aucune classe Java n'est chargée ni exécutée.",
-		Remediation: []string{"Mettre Log4j à jour en 2.17.1 ou plus (2.12.4 pour Java 7, 2.3.2 pour Java 6).", "Bloquer les sorties LDAP, RMI et DNS non nécessaires depuis ce serveur.", "Rechercher des traces d'exploitation antérieure (chaînes ${jndi:} dans les journaux).", "Relancer le check pour confirmer la correction."},
-		References:  []string{"https://logging.apache.org/log4j/2.x/security.html", "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"},
-		LabNote:     "À valider contre vulhub/solr:8.11.0 (lab/compose.yaml).",
+		Description:  "Place une chaîne de lookup JNDI pointant vers le canari dans les en-têtes, les paramètres et un formulaire. Une application qui journalise ces valeurs avec une version vulnérable de Log4j résout le nom du canari.",
+		Proof:        "Requête DNS sur le canari (lookup JNDI)",
+		Sent:         "${jndi:ldap://<point>.<canari>/a} : le nom est résolu, mais le récepteur n'expose aucun service LDAP, donc aucune classe Java n'est chargée ni exécutée.",
+		Remediation:  []string{"Mettre Log4j à jour en 2.17.1 ou plus (2.12.4 pour Java 7, 2.3.2 pour Java 6).", "Bloquer les sorties LDAP, RMI et DNS non nécessaires depuis ce serveur.", "Rechercher des traces d'exploitation antérieure (chaînes ${jndi:} dans les journaux).", "Relancer le check pour confirmer la correction."},
+		References:   []string{"https://logging.apache.org/log4j/2.x/security.html", "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"},
+		LabValidated: true, LabNote: "Validé le 14/11/2026 : prouvé sur vulhub/solr:8.11.0, non concluant sur solr:8.11.2 (lab/compose.yaml).",
 	}
 }
 
@@ -138,12 +138,12 @@ func (text4shell) Info() Info {
 	return Info{
 		ID: "text4shell", Name: "Text4ShellChecker", CVEs: []string{"CVE-2022-42889"},
 		Product: "Apache Commons Text 1.5 à 1.9", Mode: ModeCanary, Tags: []string{"java"},
-		Description: "Injecte une interpolation ${dns:…} dans les paramètres et un formulaire. Une application qui passe ces valeurs à StringSubstitutor avec une version vulnérable résout le canari.",
-		Proof:       "Requête DNS sur le canari",
-		Sent:        "${dns:address|<point>.<canari>} : uniquement une résolution de nom, aucune autre action sur la cible.",
-		Remediation: []string{"Mettre Commons Text à jour en 1.10.0 ou plus.", "Ne jamais interpoler des données externes avec StringSubstitutor.createInterpolator().", "Relancer le check pour confirmer la correction."},
-		References:  []string{"https://nvd.nist.gov/vuln/detail/CVE-2022-42889"},
-		LabNote:     "À valider contre l'application de test lab/text4shell (commons-text 1.9).",
+		Description:  "Injecte une interpolation ${dns:…} dans les paramètres et un formulaire. Une application qui passe ces valeurs à StringSubstitutor avec une version vulnérable résout le canari.",
+		Proof:        "Requête DNS sur le canari",
+		Sent:         "${dns:address|<point>.<canari>} : uniquement une résolution de nom, aucune autre action sur la cible.",
+		Remediation:  []string{"Mettre Commons Text à jour en 1.10.0 ou plus.", "Ne jamais interpoler des données externes avec StringSubstitutor.createInterpolator().", "Relancer le check pour confirmer la correction."},
+		References:   []string{"https://nvd.nist.gov/vuln/detail/CVE-2022-42889"},
+		LabValidated: true, LabNote: "Validé le 14/11/2026 : prouvé avec commons-text 1.9, non concluant avec 1.10.0 (lab/text4shell).",
 	}
 }
 

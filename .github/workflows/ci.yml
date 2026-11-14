@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: opencvec
+          POSTGRES_PASSWORD: opencvec
+          POSTGRES_DB: opencvec
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U opencvec"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      OPENCVEC_TEST_DATABASE_URL: postgres://opencvec:opencvec@localhost:5432/opencvec?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 25
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Front (typage, tests et compilation)
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Go (format, vet et tests)
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test -race -count=1 ./...
+      - name: Image Docker
+        run: docker build -t opencvec:ci .

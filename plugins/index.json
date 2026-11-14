@@ -1,0 +1,48 @@
+{
+  "publisher": "OpenCVEC (officiel)",
+  "public_key": "opencvec-pub-v1 3K53oOEvHkmwERllOPokHiMdLAUiwXPpxl/NTNDnmgM=",
+  "plugins": [
+    {
+      "id": "apache-traversal-41773",
+      "name": "ApacheTraversalChecker",
+      "version": "1.0.0",
+      "cves": [
+        "CVE-2021-41773"
+      ],
+      "mode": "canary",
+      "product": "Apache HTTP Server 2.4.49",
+      "description": "Exploite la traversée de répertoire d'Apache 2.4.49 (normalisation de chemin incomplète) pour relire le canari fichier déposé sur l'asset. Si son contenu revient dans la réponse, la lecture de fichiers arbitraires est prouvée sans avoir touché à aucun autre fichier.",
+      "file": "apache-path-traversal-cve-2021-41773.yaml",
+      "signature": "apache-path-traversal-cve-2021-41773.yaml.sig",
+      "sha256": "a7ce59921782237b11bdfbf15f4e28022ee63e95664d2392bf127ae103f990ae"
+    },
+    {
+      "id": "regresshion-6387",
+      "name": "RegreSSHionChecker",
+      "version": "1.0.0",
+      "cves": [
+        "CVE-2024-6387"
+      ],
+      "mode": "fingerprint",
+      "product": "OpenSSH antérieur à 4.4p1, et 8.5p1 à 9.7p1",
+      "description": "Lit la bannière SSH (première ligne envoyée par le serveur, avant toute authentification) et compare la version d'OpenSSH aux plages touchées par regreSSHion. L'exploitation est une condition de course sur la gestion de signaux : elle n'est jamais tentée.",
+      "file": "regresshion-cve-2024-6387.yaml",
+      "signature": "regresshion-cve-2024-6387.yaml.sig",
+      "sha256": "a78543937cb4a2cb1a120674458718642f499b95cf2a4d02ee0cf6c72ef243a7"
+    },
+    {
+      "id": "spring-function-22963",
+      "name": "SpringFunctionChecker",
+      "version": "1.0.0",
+      "cves": [
+        "CVE-2022-22963"
+      ],
+      "mode": "canary",
+      "product": "Spring Cloud Function 3.1.6 et antérieures, 3.2.0 à 3.2.2",
+      "description": "Place dans l'en-tête de routage de Spring Cloud Function une expression SpEL qui se borne à résoudre le nom du canari. Une version vulnérable évalue l'expression : la requête DNS reçue prouve l'injection d'expression (et donc l'exécution de code possible).",
+      "file": "spring-cloud-function-cve-2022-22963.yaml",
+      "signature": "spring-cloud-function-cve-2022-22963.yaml.sig",
+      "sha256": "702e9c33e46748838c74c54eccd55119ad85187082c36deee6afa0576b8a027d"
+    }
+  ]
+}

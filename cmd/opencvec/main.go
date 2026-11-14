@@ -24,10 +24,12 @@ import (
 	"github.com/Eizi0/OpenCVEC/internal/canary"
 	"github.com/Eizi0/OpenCVEC/internal/config"
 	"github.com/Eizi0/OpenCVEC/internal/httpapi"
+	"github.com/Eizi0/OpenCVEC/internal/plugin"
 	"github.com/Eizi0/OpenCVEC/internal/proof"
 	"github.com/Eizi0/OpenCVEC/internal/receiver"
 	"github.com/Eizi0/OpenCVEC/internal/runner"
 	"github.com/Eizi0/OpenCVEC/internal/secrets"
+	"github.com/Eizi0/OpenCVEC/internal/settings"
 	"github.com/Eizi0/OpenCVEC/internal/store"
 	"github.com/Eizi0/OpenCVEC/web"
 )
@@ -40,6 +42,7 @@ Usage :
   opencvec healthcheck   vérifie que le serveur répond (sonde Docker)
   opencvec reset-admin <e-mail>
                          crée ou réinitialise un administrateur (mot de passe affiché une fois)
+  opencvec plugin ...    outils de création et de signature de plugins (opencvec plugin)
 
 Configuration : variables OPENCVEC_* (voir README.md).
 `
@@ -68,6 +71,8 @@ func main() {
 			}
 			return resetAdmin(ctx, st.Pool, os.Args[2])
 		})
+	case "plugin":
+		err = pluginCmd(os.Args[2:])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:
@@ -243,10 +248,27 @@ func serve() error {
 	}
 
 	corr := &receiver.Correlator{DB: st.Pool, Signer: signer, Zone: cfg.CanaryZone, Log: log}
+	auditLog := &audit.Log{DB: st.Pool}
+	corr.OnHoneytoken = func(assetID int64, ev receiver.Event) {
+		var host string
+		_ = st.Pool.QueryRow(context.Background(), `SELECT host FROM assets WHERE id = $1`, assetID).Scan(&host)
+		_ = auditLog.Write(context.Background(), nil, "récepteur", "Alerte canari fichier",
+			fmt.Sprintf("%s : le contenu du canari fichier est revenu hors de tout check (%s %s depuis %s). Compromission probable de l'asset.", host, ev.Proto, ev.QType, ev.Source), ev.Source)
+	}
+	plugins := &plugin.Store{DB: st.Pool, Log: log, Official: plugin.OfficialPublicKey}
+	if err := plugins.EnsureOfficial(ctx); err != nil {
+		return err
+	}
+	if gs, err := settings.Load(ctx, st.Pool); err == nil {
+		if err := plugins.Load(ctx, gs.AllowUnsignedPlugins); err != nil {
+			log.Error("chargement des plugins", "err", err)
+		}
+	}
 	srv := &httpapi.Server{
 		Cfg: cfg, DB: st.Pool, Web: web.FS(), Log: log, Secrets: box,
-		Audit:    &audit.Log{DB: st.Pool},
+		Audit:    auditLog,
 		Corr:     corr,
+		Plugins:  plugins,
 		Verifier: proof.Verifier{Resolvers: cfg.ProofResolvers},
 	}
 

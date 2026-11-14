@@ -325,9 +325,16 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request, u *User) {
 	if !readJSON(w, r, &g) {
 		return
 	}
+	before, _ := settings.Load(r.Context(), s.DB)
 	if err := settings.Save(r.Context(), s.DB, g); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
+	}
+	if before.AllowUnsignedPlugins != g.AllowUnsignedPlugins {
+		s.audit(r, u, "Mode développeur", map[bool]string{true: "activé : plugins non signés autorisés", false: "désactivé : seuls les plugins signés sont chargés"}[g.AllowUnsignedPlugins])
+		if s.Plugins != nil {
+			_ = s.Plugins.Load(r.Context(), g.AllowUnsignedPlugins)
+		}
 	}
 	b, _ := json.Marshal(g)
 	s.audit(r, u, "Réglages modifiés", string(b))

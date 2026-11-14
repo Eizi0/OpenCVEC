@@ -19,6 +19,8 @@ type General struct {
 	WaitSeconds       int `json:"wait_seconds"`
 	ChecksPerAssetDay int `json:"checks_per_asset_day"`
 	ChecksPerUserHour int `json:"checks_per_user_hour"`
+	// AllowUnsignedPlugins (mode développeur) autorise les plugins non signés.
+	AllowUnsignedPlugins bool `json:"allow_unsigned_plugins"`
 }
 
 // Defaults sont les valeurs initiales.

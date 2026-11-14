@@ -29,7 +29,7 @@ type Callback struct {
 func (s *Server) queryCallbacks(ctx context.Context, where string, args ...any) ([]Callback, error) {
 	rows, err := s.DB.Query(ctx, `SELECT cb.id, cb.received_at, cb.proto, cb.qtype, cb.qname, cb.point, cb.source_ip, cb.raw, cb.status,
 		cb.source_matches, cb.check_id, k.campaign_id, COALESCE(a.host, ''), COALESCE(k.checker, '')
-		FROM callbacks cb LEFT JOIN checks k ON k.id = cb.check_id LEFT JOIN assets a ON a.id = k.asset_id `+where, args...)
+		FROM callbacks cb LEFT JOIN checks k ON k.id = cb.check_id LEFT JOIN assets a ON a.id = COALESCE(k.asset_id, cb.asset_id) `+where, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +58,8 @@ func (s *Server) listCallbacks(w http.ResponseWriter, r *http.Request, u *User) 
 		where += ` AND cb.status IN ('expired', 'replay', 'unknown')`
 	case "selftest":
 		where += ` AND cb.status = 'selftest'`
+	case "alerts":
+		where += ` AND cb.status = 'honeytoken'`
 	}
 	out, err := s.queryCallbacks(r.Context(), where+` ORDER BY cb.received_at DESC LIMIT 500`)
 	if err != nil {
@@ -79,6 +81,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, u *User) {
 		Probable      int        `json:"probable_30d"`
 		Running       int        `json:"running"`
 		LastCallback  *time.Time `json:"last_callback"`
+		Alerts        []Callback `json:"alerts"`
 		Recent        []Check    `json:"recent"`
 		Renew         []Asset    `json:"renew"`
 	}
@@ -98,6 +101,10 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request, u *User) {
 		FROM checks WHERE created_at > now() - interval '30 days'`, fps).Scan(&out.Checks30, &out.Fingerprint30, &out.Proved, &out.Probable, &out.Running)
 	_ = s.DB.QueryRow(ctx, `SELECT max(received_at) FROM callbacks WHERE status <> 'selftest'`).Scan(&out.LastCallback)
 	var err error
+	if out.Alerts, err = s.queryCallbacks(ctx, `WHERE cb.status = 'honeytoken' AND cb.received_at > now() - interval '30 days' ORDER BY cb.received_at DESC LIMIT 10`); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	if out.Recent, err = s.queryChecks(ctx, `WHERE k.verdict IS NOT NULL ORDER BY k.id DESC LIMIT 8`); err != nil {
 		s.fail(w, r, err)
 		return

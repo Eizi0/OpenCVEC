@@ -22,6 +22,7 @@ import (
 	"github.com/Eizi0/OpenCVEC/internal/auth"
 	"github.com/Eizi0/OpenCVEC/internal/canary"
 	"github.com/Eizi0/OpenCVEC/internal/config"
+	"github.com/Eizi0/OpenCVEC/internal/plugin"
 	"github.com/Eizi0/OpenCVEC/internal/proof"
 	"github.com/Eizi0/OpenCVEC/internal/receiver"
 	"github.com/Eizi0/OpenCVEC/internal/runner"
@@ -65,6 +66,7 @@ func newEnv(t *testing.T) *env {
 	srv := &Server{
 		Cfg: config.Config{CanaryZone: zone, NSName: "ns1." + zone, CanaryIP: "127.0.0.1"}, DB: db, Log: log, Secrets: box,
 		Audit: &audit.Log{DB: db}, Runner: run, Corr: corr, Verifier: proof.Verifier{},
+		Plugins: &plugin.Store{DB: db, Log: log},
 	}
 	api := httptest.NewServer(srv.Handler())
 	t.Cleanup(api.Close)

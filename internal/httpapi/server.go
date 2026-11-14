@@ -20,6 +20,7 @@ import (
 	"github.com/Eizi0/OpenCVEC/internal/audit"
 	"github.com/Eizi0/OpenCVEC/internal/auth"
 	"github.com/Eizi0/OpenCVEC/internal/config"
+	"github.com/Eizi0/OpenCVEC/internal/plugin"
 	"github.com/Eizi0/OpenCVEC/internal/proof"
 	"github.com/Eizi0/OpenCVEC/internal/receiver"
 	"github.com/Eizi0/OpenCVEC/internal/runner"
@@ -53,6 +54,7 @@ type Server struct {
 	Runner   *runner.Runner
 	Corr     *receiver.Correlator
 	Verifier proof.Verifier
+	Plugins  *plugin.Store
 	// DNSUp et HTTPUp indiquent si les listeners du récepteur ont démarré.
 	DNSUp, HTTPUp bool
 
@@ -112,6 +114,7 @@ func (s *Server) Handler() http.Handler {
 	r(RoleViewer, "GET /api/reports", s.listReports)
 	r(RoleViewer, "GET /api/reports/{id}/download", s.downloadReport)
 	r(RoleViewer, "GET /api/receiver", s.receiverStatus)
+	r(RoleViewer, "GET /api/assets/{id}/canary", s.getFileCanary)
 
 	// Analyste : assets, checks, rapports.
 	r(RoleAnalyst, "POST /api/assets", s.createAsset)
@@ -122,6 +125,8 @@ func (s *Server) Handler() http.Handler {
 	r(RoleAnalyst, "POST /api/campaigns", s.createCampaign)
 	r(RoleAnalyst, "POST /api/campaigns/{id}/cancel", s.cancelCampaign)
 	r(RoleAnalyst, "POST /api/reports", s.createReport)
+	r(RoleAnalyst, "POST /api/assets/{id}/canary", s.setFileCanary)
+	r(RoleAnalyst, "DELETE /api/assets/{id}/canary", s.deleteFileCanary)
 
 	// Administrateur.
 	r(RoleAdmin, "GET /api/users", s.listUsers)
@@ -135,6 +140,15 @@ func (s *Server) Handler() http.Handler {
 	r(RoleAdmin, "GET /api/settings", s.getSettings)
 	r(RoleAdmin, "PUT /api/settings", s.putSettings)
 	r(RoleAdmin, "POST /api/receiver/selftest", s.selftest)
+	r(RoleAdmin, "GET /api/plugins", s.listPlugins)
+	r(RoleAdmin, "GET /api/plugins/registry", s.pluginRegistry)
+	r(RoleAdmin, "POST /api/plugins/preview", s.previewPlugin)
+	r(RoleAdmin, "POST /api/plugins", s.installPlugin)
+	r(RoleAdmin, "PUT /api/plugins/{id}", s.togglePlugin)
+	r(RoleAdmin, "DELETE /api/plugins/{id}", s.deletePlugin)
+	r(RoleAdmin, "GET /api/publishers", s.listPublishers)
+	r(RoleAdmin, "POST /api/publishers", s.addPublisher)
+	r(RoleAdmin, "DELETE /api/publishers/{id}", s.deletePublisher)
 	r(RoleAdmin, "GET /api/audit", s.listAudit)
 	r(RoleAdmin, "GET /api/audit/verify", s.verifyAudit)
 	r(RoleAdmin, "GET /api/audit/export.jsonl", s.exportAudit)

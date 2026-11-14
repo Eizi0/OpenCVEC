@@ -32,6 +32,9 @@ type Config struct {
 	// ProofResolvers sont les résolveurs interrogés pour les preuves DNS TXT et l'auto-test.
 	ProofResolvers []string
 
+	// PluginRegistry est l'URL (https) du dossier contenant index.json et les plugins officiels.
+	PluginRegistry string
+
 	TrustProxy    bool
 	SecureCookies bool
 	RequireMFA    bool
@@ -54,6 +57,7 @@ func Load() (Config, error) {
 		DNSAddr:                env("OPENCVEC_DNS_ADDR", ":5353"),
 		CanaryHTTPAddr:         env("OPENCVEC_CANARY_HTTP_ADDR", ":8081"),
 		ProofResolvers:         splitList(env("OPENCVEC_PROOF_RESOLVERS", "1.1.1.1:53,8.8.8.8:53,9.9.9.9:53")),
+		PluginRegistry:         env("OPENCVEC_PLUGIN_REGISTRY", "https://raw.githubusercontent.com/Eizi0/OpenCVEC/main/plugins/"),
 		TrustProxy:             env("OPENCVEC_TRUST_PROXY", "false") == "true",
 		SecureCookies:          env("OPENCVEC_SECURE_COOKIES", "false") == "true",
 		RequireMFA:             env("OPENCVEC_REQUIRE_MFA", "false") == "true",

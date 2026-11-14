@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/netip"
 	"net/url"
 	"time"
@@ -195,8 +196,22 @@ func (r *Runner) run(ctx context.Context, id int64) error {
 	if err := r.setStatus(ctx, id, "running", d, `, started_at = now()`); err != nil {
 		return err
 	}
-	env := checks.Env{Client: pol.Client(r.HTTPTimeout)}
+	timeout := r.HTTPTimeout
+	env := checks.Env{
+		Client: pol.Client(timeout),
+		Dial: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return pol.Dial(ctx, network, addr, timeout)
+		},
+	}
 	info := c.Info()
+	var fc checks.FileCanary
+	if err := r.DB.QueryRow(ctx, `SELECT path, token FROM asset_canaries WHERE asset_id = $1`, j.assetID).Scan(&fc.Path, &fc.Token); err == nil {
+		env.File = &fc
+	}
+	if info.RequiresFileCanary && env.File == nil {
+		r.finish(ctx, id, checks.VerdictError, "Ce check exige un canari fichier : générez-le depuis la fiche de l'asset et déposez-le sur la machine.", d, "error")
+		return nil
+	}
 
 	if info.Mode == checks.ModeFingerprint {
 		rctx, cancel := context.WithTimeout(ctx, 90*time.Second)
@@ -227,6 +242,9 @@ func (r *Runner) run(ctx context.Context, id int64) error {
 	}
 	hits, unsubscribe := r.Corr.Subscribe(id)
 	defer unsubscribe()
+	if info.FileCallback && env.File != nil {
+		defer r.Corr.ExpectFile(j.assetID, id)()
+	}
 	env.CanaryHost = func(point string) string { return canary.Host(point, token, r.Zone) }
 
 	// L'heure d'envoi est prise avant la première requête : une cible vulnérable peut résoudre
@@ -241,6 +259,16 @@ func (r *Runner) run(ctx context.Context, id int64) error {
 		r.finish(ctx, id, checks.VerdictError, "Échec de l'envoi : "+err.Error(), d, "error")
 		return nil
 	}
+	// Preuve dans la bande (canari fichier relu) ou verdict direct du plugin : pas d'attente.
+	if out.Verdict != "" {
+		d.Evidence = out.Evidence
+		if _, err := r.DB.Exec(ctx, `UPDATE checks SET sent_at = $2 WHERE id = $1`, id, sent); err != nil {
+			return err
+		}
+		r.finish(ctx, id, out.Verdict, out.Summary, d, "done")
+		return nil
+	}
+	d.Evidence = out.Evidence
 	if err := r.setStatus(ctx, id, "waiting", d, ""); err != nil {
 		return err
 	}
@@ -263,6 +291,9 @@ func (r *Runner) run(ctx context.Context, id int64) error {
 				d.DeltaMS = 0
 			}
 			where := ""
+			if h.Point == "fichier" {
+				where = ", en exfiltrant le contenu du canari fichier " + env.File.Path
+			}
 			for _, p := range d.Points {
 				if p.ID == h.Point {
 					where = " via " + p.Location

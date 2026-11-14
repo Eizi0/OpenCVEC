@@ -27,6 +27,8 @@ const (
 	StatusReplay     = "replay"
 	StatusUnknown    = "unknown"
 	StatusSelftest   = "selftest"
+	// StatusHoneytoken : le jeton d'un canari fichier est revenu hors de tout check (compromission probable).
+	StatusHoneytoken = "honeytoken"
 )
 
 // Event est une requête reçue par le récepteur.
@@ -56,9 +58,14 @@ type Correlator struct {
 	Zone   string
 	Log    *slog.Logger
 
+	// OnHoneytoken est appelé quand un canari fichier est lu hors d'un check.
+	OnHoneytoken func(assetID int64, ev Event)
+
 	mu       sync.Mutex
 	waiters  map[int64]chan Hit
 	selftest map[string]chan Event
+	// fileWait associe un asset au check qui attend l'exfiltration de son canari fichier.
+	fileWait map[int64]*fileWaiter
 
 	noiseMu    sync.Mutex
 	noiseCount int
@@ -77,6 +84,29 @@ func (c *Correlator) Subscribe(checkID int64) (<-chan Hit, func()) {
 	return ch, func() {
 		c.mu.Lock()
 		delete(c.waiters, checkID)
+		c.mu.Unlock()
+	}
+}
+
+type fileWaiter struct {
+	checkID  int64
+	consumed bool
+}
+
+// ExpectFile indique qu'un check attend le contenu du canari fichier de l'asset (exfiltration
+// par DNS/HTTP). Pendant cette attente, le jeton n'est pas traité comme une alerte.
+func (c *Correlator) ExpectFile(assetID, checkID int64) func() {
+	c.mu.Lock()
+	if c.fileWait == nil {
+		c.fileWait = map[int64]*fileWaiter{}
+	}
+	c.fileWait[assetID] = &fileWaiter{checkID: checkID}
+	c.mu.Unlock()
+	return func() {
+		c.mu.Lock()
+		if w := c.fileWait[assetID]; w != nil && w.checkID == checkID {
+			delete(c.fileWait, assetID)
+		}
 		c.mu.Unlock()
 	}
 }
@@ -198,6 +228,9 @@ func (c *Correlator) Record(ctx context.Context, ev Event) (string, error) {
 		return "", err
 	}
 	if status == StatusUnknown {
+		if st, handled, err := c.fileToken(ctx, ev, p); handled || err != nil {
+			return st, err
+		}
 		return status, c.noise(ctx, ev, p.Token)
 	}
 	if status == StatusCorrelated {
@@ -212,6 +245,63 @@ func (c *Correlator) Record(ctx context.Context, ev Event) (string, error) {
 		}
 	}
 	return status, nil
+}
+
+// fileToken traite un jeton de canari fichier : preuve si un check l'attend, alerte sinon.
+func (c *Correlator) fileToken(ctx context.Context, ev Event, p canary.Parsed) (string, bool, error) {
+	var assetID int64
+	var ips []string
+	err := c.DB.QueryRow(ctx, `SELECT f.asset_id, a.resolved_ips FROM asset_canaries f JOIN assets a ON a.id = f.asset_id
+		WHERE f.token = $1`, p.Token).Scan(&assetID, &ips)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	match := sourceMatches(ev.Source, ips)
+	c.mu.Lock()
+	w := c.fileWait[assetID]
+	status, checkID := StatusHoneytoken, int64(0)
+	if w != nil {
+		checkID = w.checkID
+		status = StatusCorrelated
+		if w.consumed {
+			status = StatusDuplicate
+		}
+		w.consumed = true
+	}
+	c.mu.Unlock()
+	var cid *int64
+	if checkID != 0 {
+		cid = &checkID
+	}
+	var id int64
+	if err := c.DB.QueryRow(ctx, `INSERT INTO callbacks (received_at, proto, qtype, qname, point, source_ip, raw, token, check_id, asset_id, status, source_matches)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+		ev.At, ev.Proto, ev.QType, ev.QName, p.Point, ev.Source, ev.Raw, p.Token, cid, assetID, status, match).Scan(&id); err != nil {
+		return "", true, err
+	}
+	switch status {
+	case StatusCorrelated:
+		c.mu.Lock()
+		ch := c.waiters[checkID]
+		c.mu.Unlock()
+		if ch != nil {
+			select {
+			case ch <- Hit{CallbackID: id, At: ev.At, Proto: ev.Proto, QType: ev.QType, QName: ev.QName, Point: "fichier", Source: ev.Source, SourceMatches: match}:
+			default:
+			}
+		}
+	case StatusHoneytoken:
+		if c.Log != nil {
+			c.Log.Warn("canari fichier lu hors d'un check : compromission probable", "asset", assetID, "source", ev.Source, "nom", ev.QName)
+		}
+		if c.OnHoneytoken != nil {
+			c.OnHoneytoken(assetID, ev)
+		}
+	}
+	return status, true, nil
 }
 
 func (c *Correlator) noise(ctx context.Context, ev Event, token string) error {

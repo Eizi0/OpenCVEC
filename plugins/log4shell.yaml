@@ -1,6 +1,6 @@
 id: log4shell
 name: Log4JChecker
-version: 2.0.0
+version: 2.0.1
 author: OpenCVEC
 cves: [CVE-2021-44228, CVE-2021-45046]
 product: Apache Log4j 2 (2.0-beta9 à 2.15.0)
@@ -22,8 +22,8 @@ references:
   - https://logging.apache.org/log4j/2.x/security.html
   - https://nvd.nist.gov/vuln/detail/CVE-2021-44228
 tags: [java, log4j]
-lab_validated: false
-lab_note: À revalider après migration en plugin.
+lab_validated: true
+lab_note: "Validé le 14/11/2026 : prouvé sur vulhub/solr:8.11.0, non concluant sur solr:8.11.2 (lab/compose.yaml)."
 steps:
   - id: get
     http:

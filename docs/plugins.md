@@ -48,7 +48,11 @@ steps:
       headers:
         X-Custom: "{{canary.dns.p2}}"   # case preserved as written
       body: "…"
+    points:                      # optional labels, shown in the verdict ("triggered through X-Custom")
+      p1: query parameter url
+      p2: header X-Custom
   - id: banner
+    when: {missing: version}     # optional: run only if an earlier step did not find the value
     tcp:
       port: 22                   # optional
       tls: false
@@ -82,9 +86,16 @@ matchers:                        # evaluated before version_rule; first match wi
   - step: banner
     status: [200]
     contains: ["productx-admin"]
+    also:                        # optional: every extra condition must hold too
+      - step: other-step
+        status: [200]
+    when: {missing: version}     # optional
     verdict: exposed             # probable, exposed, patched, inconclusive
     message: "Admin console exposed."
+fallback_message: "Nothing recognized on this URL."   # when no matcher or rule applies
 ```
+
+A version range can carry its own verdict (`verdict: inconclusive` for an end-of-life branch the advisory does not cover, for instance). The first matching range wins.
 
 Messages shown in the interface are free text. The official plugins are written in French because the interface is in French.
 
@@ -96,6 +107,7 @@ Messages shown in the interface are free text. The official plugins are written 
 | `{{canary.url.pN}}` | `http://<point name>/` (HTTP receiver) |
 | `{{canary.file.path}}` | path of the canary file planted on the asset |
 | `{{target.host}}`, `{{target.port}}`, `{{target.base}}`, `{{target.path}}`, `{{target.url}}` | target URL of the check |
+| `{{target.dir}}` | target path without trailing slash (a step path may start with it or with `{{target.path}}`) |
 | `{{random}}` | 12 random hexadecimal characters |
 
 Rule and matcher messages can reference extracted values (`{{version}}`).
@@ -120,9 +132,17 @@ Each official plugin must give the expected verdict on a vulnerable target **and
 
 | Plugin | Vulnerable | Patched |
 |---|---|---|
+| Log4J (CVE-2021-44228) | Solr 8.11.0: proven | Solr 8.11.2: inconclusive |
+| Text4Shell (CVE-2022-42889) | commons-text 1.9: proven | commons-text 1.10.0: inconclusive |
 | ApacheTraversal (CVE-2021-41773) | httpd 2.4.49 with `Require all granted` on `/`: proven | httpd 2.4.51: inconclusive |
 | SpringFunction (CVE-2022-22963) | Spring Cloud Function 3.2.2: proven | no patched image tested |
 | RegreSSHion (CVE-2024-6387) | OpenSSH 9.6: probable | OpenSSH 9.9: patched |
+| PHP2Shell (CVE-2026-109618/109619) | PHP 8.3.20: probable | version table covered by tests |
+| WP2Shell (CVE-2026-63030/60137) | WordPress 6.9.4: probable | WordPress 7.0.2: patched |
+
+Confluence (license), PHP-CGI (Windows target) and FortiBleed (no free FortiGate image) are covered by unit tests only.
+
+The official plugins in `plugins/` are also embedded in the binary (`plugins/embed.go`) and preinstalled at startup, so a release ships with its catalog. A plugin uninstalled by an administrator is not reinstalled.
 
 The lab caught three mistakes that unit tests missed:
 - Spring reads a header case-sensitively, while Go canonicalizes header names;

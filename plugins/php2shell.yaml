@@ -1,6 +1,6 @@
 id: php2shell
 name: PHP2ShellChecker
-version: 2.0.0
+version: 2.0.1
 author: OpenCVEC
 cves: [CVE-2026-109618, CVE-2026-109619]
 product: PHP 5.4 à 8.5 (corrigé en 8.2.35, 8.3.36, 8.4.27, 8.5.12)
@@ -20,8 +20,8 @@ references:
   - https://blog.qualys.com/vulnerabilities-threat-research/2026/10/20/php-announces-critical-security-release-for-two-vulnerabilities
   - https://unit42.paloaltonetworks.com/cve-2026-109618-cve-2026-109619/
 tags: [php]
-lab_validated: false
-lab_note: À revalider après migration en plugin.
+lab_validated: true
+lab_note: "Validé le 14/11/2026 sur php:8.3.20-apache (probable) ; table de versions couverte par les tests."
 steps:
   - id: home
     http:

@@ -1,6 +1,6 @@
 id: wp2shell
 name: WP2ShellChecker
-version: 2.0.0
+version: 2.0.1
 author: OpenCVEC
 cves: [CVE-2026-63030, CVE-2026-60137]
 product: WordPress 6.8.0 à 6.8.5, 6.9.0 à 6.9.4, 7.0.0 à 7.0.1
@@ -19,8 +19,8 @@ references:
   - https://www.rapid7.com/blog/post/etr-cve-2026-63030-wp2shell-a-critical-remote-code-execution-vulnerability-in-wordpress-core/
   - https://www.vulncheck.com/blog/wp2shell
 tags: [wordpress, php]
-lab_validated: false
-lab_note: À revalider après migration en plugin.
+lab_validated: true
+lab_note: "Validé le 14/11/2026 : probable sur WordPress 6.9.4, version corrigée sur 7.0.2 (lab/compose.yaml)."
 steps:
   - id: home
     http:

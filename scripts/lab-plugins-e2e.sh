@@ -14,12 +14,24 @@ COMPOSE="docker compose -f lab/compose.yaml"
 call() { curl -sS -b "$JAR" -c "$JAR" -X "$1" -H 'X-OpenCVEC: 1' -H 'Content-Type: application/json' ${3:+--data "$3"} "$API$2"; }
 
 echo "· attente des cibles"
-for url in http://172.30.0.50/ http://172.30.0.51/ http://172.30.0.60:8080/ ; do
+for url in http://172.30.0.50/ http://172.30.0.51/ http://172.30.0.60:8080/ http://172.30.0.80/ http://172.30.0.81/ ; do
   for _ in $(seq 1 60); do
     docker run --rm --network opencvec-lab_lab curlimages/curl:8.11.1 -s -o /dev/null --max-time 3 "$url" && break
     sleep 3
   done
 done
+
+wp_install() { # ip : installe WordPress (idempotent), mot de passe admin jetable
+  local pw
+  docker run --rm --network opencvec-lab_lab curlimages/curl:8.11.1 -s --max-time 10 "http://$1/" | grep -q 'name="generator"' && return
+  pw=$(openssl rand -hex 12)
+  docker run --rm --network opencvec-lab_lab curlimages/curl:8.11.1 -s -o /dev/null --max-time 60 -X POST "http://$1/wp-admin/install.php?step=2" \
+    --data-urlencode "weblog_title=Labo OpenCVEC" --data-urlencode "user_name=labo" --data-urlencode "admin_password=$pw" \
+    --data-urlencode "admin_password2=$pw" --data-urlencode "pw_weak=1" --data-urlencode "admin_email=labo@lab.test" \
+    --data-urlencode "blog_public=0" --data-urlencode "language=" -d "Submit=Install"
+}
+echo "· installation des WordPress du labo"
+wp_install 172.30.0.80; wp_install 172.30.0.81
 
 call POST /api/login "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" >/dev/null
 call POST /api/allowlist '{"cidr":"172.30.0.0/24","reason":"labo OpenCVEC isolé","review_days":30}' >/dev/null || true
@@ -67,6 +79,8 @@ launch "ApacheTraversal / httpd 2.4.51"   172.30.0.51 80   "http://172.30.0.51/"
 launch "SpringFunction / SCF 3.2.2"       172.30.0.60 8080 "http://172.30.0.60:8080/" spring-function-22963  proved
 launch "RegreSSHion / OpenSSH 9.6p1"      172.30.0.70 22   "http://172.30.0.70:22/"   regresshion-6387       probable
 launch "RegreSSHion / OpenSSH 9.9p2"      172.30.0.71 22   "http://172.30.0.71:22/"   regresshion-6387       patched
+launch "WP2Shell / WordPress 6.9.4"       172.30.0.80 80   "http://172.30.0.80/"      wp2shell               probable
+launch "WP2Shell / WordPress 7.0.2"       172.30.0.81 80   "http://172.30.0.81/"      wp2shell               patched
 
 for i in "${!CIDS[@]}"; do
   for _ in $(seq 1 300); do

@@ -119,3 +119,41 @@ services:
     networks:
       lab:
         ipv4_address: 172.30.0.71
+
+  # WP2Shell (empreinte) : WordPress 6.9.4 (vulnérable) et 7.0.2 (corrigé), même base, préfixes distincts.
+  # Mises à jour automatiques désactivées : sinon WordPress appliquerait lui-même le correctif.
+  wp-db:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: labo-root
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: labo-wordpress
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks: [lab]
+  wp-old:
+    image: wordpress:6.9.4-apache
+    depends_on: { wp-db: { condition: service_healthy } }
+    environment: &wpenv
+      WORDPRESS_DB_HOST: wp-db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: labo-wordpress
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_TABLE_PREFIX: wpold_
+      WORDPRESS_CONFIG_EXTRA: "define('AUTOMATIC_UPDATER_DISABLED', true); define('WP_AUTO_UPDATE_CORE', false);"
+    networks:
+      lab:
+        ipv4_address: 172.30.0.80
+  wp-new:
+    image: wordpress:7.0.2-apache
+    depends_on: { wp-db: { condition: service_healthy } }
+    environment:
+      <<: *wpenv
+      WORDPRESS_TABLE_PREFIX: wpnew_
+    networks:
+      lab:
+        ipv4_address: 172.30.0.81

@@ -1,6 +1,6 @@
 id: text4shell
 name: Text4ShellChecker
-version: 2.0.0
+version: 2.0.1
 author: OpenCVEC
 cves: [CVE-2022-42889]
 product: Apache Commons Text 1.5 à 1.9
@@ -17,8 +17,8 @@ remediation:
 references:
   - https://nvd.nist.gov/vuln/detail/CVE-2022-42889
 tags: [java]
-lab_validated: false
-lab_note: À revalider après migration en plugin.
+lab_validated: true
+lab_note: "Validé le 14/11/2026 : prouvé avec commons-text 1.9, non concluant avec 1.10.0 (lab/text4shell)."
 steps:
   - id: get
     http:

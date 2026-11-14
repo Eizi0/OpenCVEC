@@ -5,7 +5,7 @@
     {
       "id": "apache-traversal-41773",
       "name": "ApacheTraversalChecker",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "cves": [
         "CVE-2021-41773"
       ],
@@ -14,7 +14,7 @@
       "description": "Exploite la traversée de répertoire d'Apache 2.4.49 (normalisation de chemin incomplète) pour relire le canari fichier déposé sur l'asset. Si son contenu revient dans la réponse, la lecture de fichiers arbitraires est prouvée sans avoir touché à aucun autre fichier. La faille n'est exploitable que si la protection par défaut « Require all denied » sur \u003cDirectory /\u003e a été retirée : une 2.4.49 en configuration d'origine donne « non concluant ».",
       "file": "apache-path-traversal-cve-2021-41773.yaml",
       "signature": "apache-path-traversal-cve-2021-41773.yaml.sig",
-      "sha256": "2725f9a8bef619f61f913435810da5ab46b543d45c7a134d9308c1f00eece386"
+      "sha256": "600b9482d1bbeb07312814f305042f1648a593ccab09ea26dd31fb528b547dd3"
     },
     {
       "id": "confluence-ognl",
@@ -49,7 +49,7 @@
     {
       "id": "log4shell",
       "name": "Log4JChecker",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "cves": [
         "CVE-2021-44228",
         "CVE-2021-45046"
@@ -59,7 +59,7 @@
       "description": "Place une chaîne de lookup JNDI pointant vers le canari dans les en-têtes, les paramètres et un formulaire. Une application qui journalise ces valeurs avec une version vulnérable de Log4j résout le nom du canari.",
       "file": "log4shell.yaml",
       "signature": "log4shell.yaml.sig",
-      "sha256": "53fe7fbf5f51527a29abc7ea21021556ddc3f319b78b00e85cc67e8f6bcdacbe"
+      "sha256": "bdb41cd1ad5ef9caa671a3016f12f5b5ef87cde36a8000ac32ac82d9e4c10f8d"
     },
     {
       "id": "php-cgi-4577",
@@ -78,7 +78,7 @@
     {
       "id": "php2shell",
       "name": "PHP2ShellChecker",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "cves": [
         "CVE-2026-109618",
         "CVE-2026-109619"
@@ -88,12 +88,12 @@
       "description": "Lit la version de PHP annoncée par le serveur (en-têtes X-Powered-By ou Server) et la compare aux versions corrigées. Les deux CVE sont des corruptions mémoire exploitées activement : aucune charge n'est envoyée.",
       "file": "php2shell.yaml",
       "signature": "php2shell.yaml.sig",
-      "sha256": "c1aa02491e0c77d43d422cea5d9716e2418679f19db25718e4dbfb7fbb03dc39"
+      "sha256": "4ddff91c3df7c7cf0cc5eb7eed768f030d60386b9580f852dd388789e7d2f8cd"
     },
     {
       "id": "regresshion-6387",
       "name": "RegreSSHionChecker",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "cves": [
         "CVE-2024-6387"
       ],
@@ -102,12 +102,12 @@
       "description": "Lit la bannière SSH (première ligne envoyée par le serveur, avant toute authentification) et compare la version d'OpenSSH (majeure.mineure : certaines distributions, comme Alpine, n'affichent pas le suffixe « pN ») aux plages touchées par regreSSHion. L'exploitation est une condition de course sur la gestion de signaux : elle n'est jamais tentée.",
       "file": "regresshion-cve-2024-6387.yaml",
       "signature": "regresshion-cve-2024-6387.yaml.sig",
-      "sha256": "2d9ec1a52eebc639aabd1a5e3861916c8d6f6341cea914ffb03e1d2007f1f253"
+      "sha256": "2286d992e7080da51014cabb6e2abcc209afbc1464b6eabe9177690c72cb19c5"
     },
     {
       "id": "spring-function-22963",
       "name": "SpringFunctionChecker",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "cves": [
         "CVE-2022-22963"
       ],
@@ -116,12 +116,12 @@
       "description": "Place dans l'en-tête de routage de Spring Cloud Function une expression SpEL qui se borne à résoudre le nom du canari. Une version vulnérable évalue l'expression : la requête DNS reçue prouve l'injection d'expression (et donc l'exécution de code possible).",
       "file": "spring-cloud-function-cve-2022-22963.yaml",
       "signature": "spring-cloud-function-cve-2022-22963.yaml.sig",
-      "sha256": "702e9c33e46748838c74c54eccd55119ad85187082c36deee6afa0576b8a027d"
+      "sha256": "899266567d2d09ef89c3ec12a217a25d387db1387c2ad99e55dc6bbd8c1fbbbc"
     },
     {
       "id": "text4shell",
       "name": "Text4ShellChecker",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "cves": [
         "CVE-2022-42889"
       ],
@@ -130,12 +130,12 @@
       "description": "Injecte une interpolation ${dns:…} dans les paramètres et un formulaire. Une application qui passe ces valeurs à StringSubstitutor avec une version vulnérable résout le canari.",
       "file": "text4shell.yaml",
       "signature": "text4shell.yaml.sig",
-      "sha256": "d09ff5ff920629cd1dd7db1dd033230bbb62d16787bdf637a7621df56eb8b5d1"
+      "sha256": "bdc30a5d89fa60536ad8d704f08c713bc2668c19f6cbe2e213fedd717586cfc7"
     },
     {
       "id": "wp2shell",
       "name": "WP2ShellChecker",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "cves": [
         "CVE-2026-63030",
         "CVE-2026-60137"
@@ -145,7 +145,7 @@
       "description": "Détermine la version de WordPress (balise generator de la page d'accueil, puis flux RSS si elle est absente) et la compare aux versions corrigées. La chaîne mène à une exécution de code sans authentification ; elle n'est jamais déclenchée.",
       "file": "wp2shell.yaml",
       "signature": "wp2shell.yaml.sig",
-      "sha256": "afa174f2deb12c5b4c22de73d6b6af0b1d37011c04e737c175fd64e906ae15d3"
+      "sha256": "acdfa824c39c549864cd66e5ab2188e9bb8fc0f3a117166954598a274e5a2429"
     }
   ]
 }

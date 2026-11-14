@@ -44,27 +44,24 @@ Plugins are installed from **Plugins › Official catalog**, by URL or by file. 
 - **Only trusted publishers are accepted.** The official publisher is built in, and teams can add their own key. Unsigned plugins require **developer mode**, which is audited. Signatures are re-verified at every load, so removing a publisher immediately unloads its plugins.
 - **Write, sign and publish** with `opencvec plugin keygen | lint | sign | verify | index`. See [docs/plugins.md](docs/plugins.md).
 
+Every checker is a plugin. The 10 official plugins are **embedded in the binary and preinstalled at first start**, including on instances without Internet access. They are verified against the official key and updated automatically when a newer version ships, and an administrator can uninstall any of them.
+
 | Official plugin | CVE | Proof | Lab validation |
 |---|---|---|---|
-| ApacheTraversalChecker | CVE-2021-41773 | canary file read back | proven on httpd 2.4.49 (vulnerable configuration), inconclusive on 2.4.51 |
+| Log4JChecker | CVE-2021-44228, CVE-2021-45046 | DNS callback (JNDI lookup, 12 injection points) | proven on Solr 8.11.0, inconclusive on 8.11.2 |
+| Text4ShellChecker | CVE-2022-42889 | DNS callback (`${dns:}`) | proven with commons-text 1.9, inconclusive with 1.10.0 |
 | SpringFunctionChecker | CVE-2022-22963 | DNS callback (SpEL) | proven on Spring Cloud Function 3.2.2 |
+| ApacheTraversalChecker | CVE-2021-41773 | canary file read back | proven on httpd 2.4.49 (vulnerable configuration), inconclusive on 2.4.51 |
+| ConfluenceChecker | CVE-2022-26134 | DNS callback (OGNL limited to `InetAddress.getByName`) | not validated (license required) |
+| PHPCGIChecker | CVE-2024-4577 | DNS callback (`gethostbyname` through PHP-CGI) | not validated (Windows target required) |
 | RegreSSHionChecker | CVE-2024-6387 | SSH banner (TCP) | probable on OpenSSH 9.6, patched on 9.9 |
-
-## Built-in checkers
-
-| Checker | CVE | Mode | Lab validation |
-|---|---|---|---|
-| Log4JChecker | CVE-2021-44228, CVE-2021-45046 | canary (JNDI lookup) | proven on Solr 8.11.0, inconclusive on 8.11.2 |
-| Text4ShellChecker | CVE-2022-42889 | canary (`${dns:}`) | proven with commons-text 1.9, inconclusive with 1.10.0 |
-| ConfluenceChecker | CVE-2022-26134 | canary (OGNL limited to `InetAddress.getByName`) | not validated (license required) |
-| PHPCGIChecker | CVE-2024-4577 | canary (`gethostbyname` through PHP-CGI) | not validated (Windows target required) |
 | PHP2ShellChecker | CVE-2026-109618, CVE-2026-109619 | version fingerprint | probable on PHP 8.3.20 |
-| WP2ShellChecker | CVE-2026-63030, CVE-2026-60137 | version fingerprint | unit tests only |
+| WP2ShellChecker | CVE-2026-63030, CVE-2026-60137 | version fingerprint (generator tag, then RSS feed) | probable on WordPress 6.9.4, patched on 7.0.2 |
 | FortiBleedChecker | "FortiBleed" campaign (related CVEs) | FortiGate interface exposure | unit tests only |
 
-**Fingerprint-only checkers.** PHP2Shell and WP2Shell are actively exploited code execution chains. Proving them with a canary would require a real exploit, so OpenCVEC only reads the exposed version, and the best possible verdict is "probable".
+**Fingerprint-only plugins.** PHP2Shell and WP2Shell are actively exploited code execution chains, and RegreSSHion is a race condition. Proving them with a canary would require a real exploit, so OpenCVEC only reads the exposed version, and the best possible verdict is "probable".
 
-**FortiBleed** is a credential-theft campaign, not a CVE. Its checker reports a reachable FortiGate admin interface or SSL-VPN portal ("exposed").
+**FortiBleed** is a credential-theft campaign, not a CVE. Its plugin reports a reachable FortiGate admin interface or SSL-VPN portal ("exposed").
 
 Possible verdicts: proven, probable, exposed, patched version, inconclusive, error.
 
@@ -129,8 +126,8 @@ Durations (canary lifetime, callback wait), rate limits and developer mode are s
 
 ```sh
 docker compose -f lab/compose.yaml up -d --build
-./scripts/lab-e2e.sh            # built-in checkers: 5 scenarios
-./scripts/lab-plugins-e2e.sh    # plugins: 5 scenarios, tampered plugin rejected, honeytoken alert
+./scripts/lab-e2e.sh            # Log4Shell, Text4Shell, PHP2Shell: 5 scenarios
+./scripts/lab-plugins-e2e.sh    # Apache, Spring, RegreSSHion, WP2Shell: 7 scenarios, tampered plugin rejected, honeytoken alert
 ```
 
 The lab interface is served at http://127.0.0.1:8095 (test credentials in `lab/compose.yaml`).
@@ -144,7 +141,7 @@ go test ./...                    # unit and integration tests (end-to-end proof 
 cd web && npm ci && npm test && npm run build
 ```
 
-Stack: Go (API, `miekg/dns` receiver, runner, plugin engine), PostgreSQL, React and Vite (embedded in the binary), distroless non-root image for amd64 and arm64.
+Stack: Go (API, `miekg/dns` receiver, runner, YAML plugin engine), PostgreSQL, React and Vite (embedded in the binary), distroless non-root image for amd64 and arm64.
 
 ## Limitations
 

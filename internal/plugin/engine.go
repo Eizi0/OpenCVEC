@@ -193,9 +193,13 @@ func (c *Checker) Run(ctx context.Context, target string, env checks.Env) (check
 
 	if p.Mode == "canary" {
 		if p.Proofs.Callback || p.Proofs.FileCallback {
-			ids := make([]string, 0, len(points))
-			for _, pt := range points {
-				ids = append(ids, pt.ID)
+			ids := make([]string, 0, len(p.Steps))
+			for _, st := range p.Steps {
+				for _, pt := range points {
+					if pt.ID == st.ID && pt.Error == "" {
+						ids = append(ids, st.ID)
+					}
+				}
 			}
 			return checks.Outcome{Summary: fmt.Sprintf("Étapes envoyées : %s.", strings.Join(ids, ", ")), Points: points, Evidence: ev}, nil
 		}

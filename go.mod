@@ -3,6 +3,7 @@ module github.com/Eizi0/OpenCVEC
 go 1.27.2
 
 require (
+	github.com/go-pdf/fpdf v0.9.0
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/miekg/dns v1.1.73
 	golang.org/x/crypto v0.59.0

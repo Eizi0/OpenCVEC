@@ -56,8 +56,8 @@ func (s *Server) createReport(w http.ResponseWriter, r *http.Request, u *User) {
 	if !readJSON(w, r, &in) {
 		return
 	}
-	if in.Format != "html" && in.Format != "json" {
-		writeErr(w, http.StatusBadRequest, "format : html ou json")
+	if in.Format != "html" && in.Format != "json" && in.Format != "pdf" {
+		writeErr(w, http.StatusBadRequest, "format : pdf, html ou json")
 		return
 	}
 	ctx := r.Context()
@@ -135,9 +135,12 @@ func (s *Server) createReport(w http.ResponseWriter, r *http.Request, u *User) {
 	}
 	rep.Count()
 	var content []byte
-	if in.Format == "json" {
+	switch in.Format {
+	case "json":
 		content, err = rep.JSON()
-	} else {
+	case "pdf":
+		content, err = rep.PDF()
+	default:
 		content, err = rep.HTML()
 	}
 	if err != nil {
@@ -169,9 +172,12 @@ func (s *Server) downloadReport(w http.ResponseWriter, r *http.Request, u *User)
 		return
 	}
 	name := "opencvec-rapport-" + strconv.FormatInt(id, 10) + "." + format
-	if format == "json" {
+	switch format {
+	case "json":
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	} else {
+	case "pdf":
+		w.Header().Set("Content-Type", "application/pdf")
+	default:
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		// Le rapport est une page autonome : la CSP de l'application est remplacée par une CSP sans script.
 		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src data:")

@@ -64,7 +64,7 @@ export function Reports() {
   const { data: assets } = useLoad<Asset[]>('/api/assets')
   const [scope, setScope] = useState(params.get('campagne') ? `c:${params.get('campagne')}` : 'all')
   const [days, setDays] = useState(30)
-  const [fmt, setFmt] = useState<'html' | 'json'>('html')
+  const [fmt, setFmt] = useState<'pdf' | 'html' | 'json'>('pdf')
   const [raw, setRaw] = useState(true)
   const [inc, setInc] = useState(false)
   const [err, setErr] = useState('')
@@ -90,7 +90,7 @@ export function Reports() {
       <header className="page-head">
         <div>
           <h1>Rapports</h1>
-          <p className="lead">Chaque rapport embarque les preuves (canari, horodatages, source, requête brute) et son empreinte SHA-256 est conservée par l'instance. Le format HTML s'imprime en PDF depuis le navigateur.</p>
+          <p className="lead">Chaque rapport embarque les preuves (canari, horodatages, source, requête brute) et son empreinte SHA-256 est conservée par l'instance.</p>
         </div>
       </header>
       <div className="row">
@@ -117,7 +117,7 @@ export function Reports() {
             )}
             <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
               <legend className="label" style={{ paddingBottom: 10 }}>Format</legend>
-              <Tabs label="Format" value={fmt} onChange={setFmt} items={[['html', 'HTML (imprimable)'], ['json', 'JSON']]} />
+              <Tabs label="Format" value={fmt} onChange={setFmt} items={[['pdf', 'PDF'], ['html', 'HTML'], ['json', 'JSON']]} />
             </fieldset>
             <label className="check"><input type="checkbox" checked={raw} onChange={(e) => setRaw(e.target.checked)} />Inclure les requêtes brutes reçues</label>
             <label className="check"><input type="checkbox" checked={inc} onChange={(e) => setInc(e.target.checked)} />Inclure les checks non concluants et en erreur</label>

@@ -183,7 +183,7 @@ export interface ReportRow {
   id: number
   title: string
   summary: string
-  format: 'html' | 'json'
+  format: 'pdf' | 'html' | 'json'
   sha256: string
   size: number
   created_by: string

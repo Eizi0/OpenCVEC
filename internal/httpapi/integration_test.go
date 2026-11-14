@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -236,6 +237,15 @@ func TestEndToEndCanaryProof(t *testing.T) {
 	_, html := admin.do("GET", "/api/reports/"+itoa(rep.ID)+"/download", nil)
 	if !strings.Contains(html, "Prouvé vulnérable") || !strings.Contains(html, d.Canary) {
 		t.Fatal("le rapport doit contenir le verdict et le canari")
+	}
+	var pdfRep struct{ ID int64 }
+	admin.json("POST", "/api/reports", map[string]any{"campaign_id": created.ID, "format": "pdf", "include_raw": true, "include_inconclusive": true}, &pdfRep, 201)
+	_, pdf := admin.do("GET", "/api/reports/"+itoa(pdfRep.ID)+"/download", nil)
+	if !strings.HasPrefix(pdf, "%PDF-") || len(pdf) < 2000 {
+		t.Fatalf("PDF invalide (%d octets)", len(pdf))
+	}
+	if dir := os.Getenv("OPENCVEC_KEEP_PDF"); dir != "" {
+		_ = os.WriteFile(dir+"/rapport-test.pdf", []byte(pdf), 0o644)
 	}
 	var v audit.VerifyResult
 	admin.json("GET", "/api/audit/verify", nil, &v, 200)

@@ -3,10 +3,15 @@ package report
 
 import (
 	"bytes"
+	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"html/template"
 	"time"
 )
+
+//go:embed logo.png
+var logoPNG []byte
 
 // Callback est une preuve de callback incluse dans le rapport.
 type Callback struct {
@@ -121,6 +126,9 @@ var statusLabel = map[string]string{
 var tpl = template.Must(template.New("r").Funcs(template.FuncMap{
 	"verdict": func(v string) string { return verdictLabel[v] },
 	"status":  func(v string) string { return statusLabel[v] },
+	"logo": func() template.URL {
+		return template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(logoPNG))
+	},
 	"date": func(t any) string {
 		switch x := t.(type) {
 		case time.Time:
@@ -151,6 +159,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{border-bottom:1px
 footer{margin-top:32px;color:var(--muted);font-size:12px}
 @media print{main{padding:0}.box{border-color:#bbb}}
 </style></head><body><main>
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px"><img src="{{logo}}" width="40" height="40" alt="OpenCVEC" style="border-radius:8px"><span style="font-weight:700;font-size:15px">OpenCVEC</span></div>
 <h1>{{.Title}}</h1>
 <div class="meta">Périmètre : {{.Scope}} · généré le {{date .GeneratedAt}} par {{.GeneratedBy}} · zone canari {{.CanaryZone}}</div>
 <div class="summary">

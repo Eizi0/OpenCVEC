@@ -1,3 +1,4 @@
+<p align="center"><img src="docs/assets/logo.png" width="180" alt="OpenCVEC logo"></p>
 <h1 align="center">OpenCVEC</h1>
 <p align="center"><strong>CVE Checker</strong>: self-hosted, canary-based vulnerability verification.</p>
 

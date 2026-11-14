@@ -35,14 +35,7 @@ export function useLoad<T>(path: string | null, intervalMs = 0) {
 }
 
 export function Logo({ size = 30 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <rect x="1" y="1" width="30" height="30" rx="8" fill="#F2C94C" />
-      <circle cx="14" cy="15" r="7" fill="none" stroke="#1A1500" strokeWidth="2.4" />
-      <path d="M20 13.5 L26 15 L20 16.5 Z" fill="#1A1500" />
-      <circle cx="12.5" cy="13.5" r="1.4" fill="#1A1500" />
-    </svg>
-  )
+  return <img src="/logo-192.png" width={size} height={size} alt="" aria-hidden="true" style={{ borderRadius: Math.round(size / 5), display: 'block' }} />
 }
 
 export function VerdictPill({ v }: { v: string }) {

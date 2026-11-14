@@ -36,8 +36,14 @@ func (r Report) PDF() ([]byte, error) {
 	w, _ := pdf.GetPageSize()
 	width := w - 32
 
-	pdf.SetFont("Helvetica", "B", 18)
+	pdf.RegisterImageOptionsReader("logo", fpdf.ImageOptions{ImageType: "PNG"}, bytes.NewReader(logoPNG))
+	pdf.ImageOptions("logo", 16, 14, 11, 11, false, fpdf.ImageOptions{ImageType: "PNG"}, 0, "")
+	pdf.SetXY(29.5, 15.5)
+	pdf.SetFont("Helvetica", "B", 11)
 	pdf.SetTextColor(20, 23, 28)
+	pdf.CellFormat(0, 8, "OpenCVEC", "", 1, "L", false, 0, "")
+	pdf.SetY(28)
+	pdf.SetFont("Helvetica", "B", 18)
 	pdf.MultiCell(width, 8, t(r.Title), "", "L", false)
 	pdf.SetFont("Helvetica", "", 9)
 	pdf.SetTextColor(90, 100, 114)

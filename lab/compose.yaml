@@ -83,3 +83,39 @@ services:
     networks:
       lab:
         ipv4_address: 172.30.0.40
+
+  # Plugin ApacheTraversal (canari fichier) : Apache 2.4.49 vulnérable, 2.4.51 corrigé.
+  # Comme l'environnement vulhub d'origine, la protection « Require all denied » de <Directory />
+  # est retirée : sans cela, la 2.4.49 n'est pas exploitable.
+  httpd:
+    image: vulhub/httpd:2.4.49
+    command: ["sh", "-c", "sed -i 's/Require all denied/Require all granted/' /usr/local/apache2/conf/httpd.conf && exec httpd-foreground"]
+    dns: [172.30.0.10]
+    networks:
+      lab:
+        ipv4_address: 172.30.0.50
+  httpd-patched:
+    image: httpd:2.4.51
+    networks:
+      lab:
+        ipv4_address: 172.30.0.51
+
+  # Plugin SpringFunction (callback DNS) : Spring Cloud Function 3.2.2 vulnérable.
+  spring-function:
+    image: vulhub/spring-cloud-function:3.2.2
+    dns: [172.30.0.10]
+    networks:
+      lab:
+        ipv4_address: 172.30.0.60
+
+  # Plugin RegreSSHion (empreinte TCP) : OpenSSH 9.6p1 (Alpine 3.19) et 9.9p2 (Alpine 3.21).
+  sshd-old:
+    build: { context: ./sshd, args: { ALPINE: "3.19" } }
+    networks:
+      lab:
+        ipv4_address: 172.30.0.70
+  sshd-new:
+    build: { context: ./sshd, args: { ALPINE: "3.21" } }
+    networks:
+      lab:
+        ipv4_address: 172.30.0.71

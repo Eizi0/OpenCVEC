@@ -142,6 +142,8 @@ func TestRegreSSHionBanner(t *testing.T) {
 	c := &Checker{P: p, Publisher: "test", Signed: true}
 	cases := map[string]string{
 		"SSH-2.0-OpenSSH_9.6p1":                   checks.VerdictProbable,
+		"SSH-2.0-OpenSSH_9.6":                     checks.VerdictProbable,
+		"SSH-2.0-OpenSSH_9.9":                     checks.VerdictPatched,
 		"SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.1": checks.VerdictProbable,
 		"SSH-2.0-OpenSSH_9.8p1":                   checks.VerdictPatched,
 		"SSH-2.0-OpenSSH_8.4p1 Debian-5":          checks.VerdictPatched,

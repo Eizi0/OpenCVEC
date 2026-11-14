@@ -5,30 +5,30 @@
     {
       "id": "apache-traversal-41773",
       "name": "ApacheTraversalChecker",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "cves": [
         "CVE-2021-41773"
       ],
       "mode": "canary",
       "product": "Apache HTTP Server 2.4.49",
-      "description": "Exploite la traversée de répertoire d'Apache 2.4.49 (normalisation de chemin incomplète) pour relire le canari fichier déposé sur l'asset. Si son contenu revient dans la réponse, la lecture de fichiers arbitraires est prouvée sans avoir touché à aucun autre fichier.",
+      "description": "Exploite la traversée de répertoire d'Apache 2.4.49 (normalisation de chemin incomplète) pour relire le canari fichier déposé sur l'asset. Si son contenu revient dans la réponse, la lecture de fichiers arbitraires est prouvée sans avoir touché à aucun autre fichier. La faille n'est exploitable que si la protection par défaut « Require all denied » sur \u003cDirectory /\u003e a été retirée : une 2.4.49 en configuration d'origine donne « non concluant ».",
       "file": "apache-path-traversal-cve-2021-41773.yaml",
       "signature": "apache-path-traversal-cve-2021-41773.yaml.sig",
-      "sha256": "a7ce59921782237b11bdfbf15f4e28022ee63e95664d2392bf127ae103f990ae"
+      "sha256": "2725f9a8bef619f61f913435810da5ab46b543d45c7a134d9308c1f00eece386"
     },
     {
       "id": "regresshion-6387",
       "name": "RegreSSHionChecker",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "cves": [
         "CVE-2024-6387"
       ],
       "mode": "fingerprint",
       "product": "OpenSSH antérieur à 4.4p1, et 8.5p1 à 9.7p1",
-      "description": "Lit la bannière SSH (première ligne envoyée par le serveur, avant toute authentification) et compare la version d'OpenSSH aux plages touchées par regreSSHion. L'exploitation est une condition de course sur la gestion de signaux : elle n'est jamais tentée.",
+      "description": "Lit la bannière SSH (première ligne envoyée par le serveur, avant toute authentification) et compare la version d'OpenSSH (majeure.mineure : certaines distributions, comme Alpine, n'affichent pas le suffixe « pN ») aux plages touchées par regreSSHion. L'exploitation est une condition de course sur la gestion de signaux : elle n'est jamais tentée.",
       "file": "regresshion-cve-2024-6387.yaml",
       "signature": "regresshion-cve-2024-6387.yaml.sig",
-      "sha256": "a78543937cb4a2cb1a120674458718642f499b95cf2a4d02ee0cf6c72ef243a7"
+      "sha256": "2d9ec1a52eebc639aabd1a5e3861916c8d6f6341cea914ffb03e1d2007f1f253"
     },
     {
       "id": "spring-function-22963",

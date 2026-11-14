@@ -209,7 +209,11 @@ func (c *Checker) Run(ctx context.Context, target string, env checks.Env) (check
 
 	if p.Mode == "canary" {
 		if p.Proofs.Callback || p.Proofs.FileCallback {
-			return checks.Outcome{Summary: fmt.Sprintf("%s : %d étape(s) exécutée(s), en attente du canari.", p.Name, len(points)), Points: points, Evidence: ev}, nil
+			ids := make([]string, 0, len(points))
+			for _, pt := range points {
+				ids = append(ids, pt.ID)
+			}
+			return checks.Outcome{Summary: fmt.Sprintf("Étapes envoyées : %s.", strings.Join(ids, ", ")), Points: points, Evidence: ev}, nil
 		}
 		return checks.Outcome{Verdict: checks.VerdictInconclusive, Points: points, Evidence: ev,
 			Summary: fmt.Sprintf("%s : le contenu du canari fichier n'a été relu dans aucune réponse. L'asset n'est probablement pas vulnérable (ou le canari n'est pas déposé à %s).", p.Name, env.File.Path)}, nil
@@ -303,8 +307,11 @@ func (c *Checker) doHTTP(ctx context.Context, base *url.URL, h *HTTPStep, vars m
 		return response{}, fmt.Errorf("le chemin rendu sort de l'asset")
 	}
 	req.Header.Set("User-Agent", "OpenCVEC/0.2 (+verification de vulnerabilite autorisee)")
+	// La casse des en-têtes est conservée telle que l'auteur l'a écrite : certaines applications
+	// (Spring, par exemple) les lisent en respectant la casse, contrairement à la norme HTTP.
 	for k, v := range h.Headers {
-		req.Header.Set(k, render(v, vars, env))
+		req.Header.Del(k)
+		req.Header[k] = []string{render(v, vars, env)}
 	}
 	resp, err := env.Client.Do(req)
 	if err != nil {

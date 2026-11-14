@@ -36,6 +36,7 @@ export const callbackLabel: Record<string, string> = {
   replay: 'Rejeté (rejeu)',
   unknown: 'Rejeté (jeton inconnu)',
   selftest: 'Auto-test',
+  honeytoken: 'Alerte : canari fichier lu hors check',
 }
 
 export const proofMethodLabel: Record<string, string> = {

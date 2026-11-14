@@ -55,6 +55,11 @@ export interface CheckerInfo {
   tags: string[]
   lab_validated: boolean
   lab_note: string
+  source: 'builtin' | 'plugin'
+  version?: string
+  publisher?: string
+  requires_file_canary: boolean
+  file_callback: boolean
 }
 
 export interface Point {
@@ -116,7 +121,7 @@ export interface Callback {
   point: string
   source_ip: string
   raw: string
-  status: 'correlated' | 'duplicate' | 'expired' | 'replay' | 'unknown' | 'selftest'
+  status: 'correlated' | 'duplicate' | 'expired' | 'replay' | 'unknown' | 'selftest' | 'honeytoken'
   source_matches: boolean | null
   check_id: number | null
   campaign_id: number | null
@@ -155,6 +160,7 @@ export interface Dashboard {
   probable_30d: number
   running: number
   last_callback: string | null
+  alerts: Callback[]
   recent: Check[]
   renew: Asset[]
 }
@@ -217,4 +223,70 @@ export interface Settings {
   wait_seconds: number
   checks_per_asset_day: number
   checks_per_user_hour: number
+  allow_unsigned_plugins: boolean
+}
+
+export interface PluginRow {
+  id: string
+  version: string
+  name: string
+  sha256: string
+  publisher: string
+  signed: boolean
+  enabled: boolean
+  source: string
+  installed_by: string
+  installed_at: string
+  content: string
+}
+
+export interface PluginPreview {
+  id: string
+  name: string
+  version: string
+  cves: string[]
+  mode: 'canary' | 'fingerprint'
+  product: string
+  description: string
+  sent: string
+  steps: string[]
+  requires_file_canary: boolean
+  sha256: string
+  signed: boolean
+  publisher: string
+  signature_error: string
+  installable: boolean
+  content: string
+  replaces?: string
+}
+
+export interface RegistryEntry {
+  id: string
+  name: string
+  version: string
+  cves: string[]
+  mode: 'canary' | 'fingerprint'
+  product: string
+  description: string
+  url: string
+  installed: string
+}
+
+export interface PublisherRow {
+  id: number
+  name: string
+  public_key: string
+  key_id: string
+  builtin: boolean
+  added_by: string
+  created_at: string
+}
+
+export interface FileCanary {
+  path: string
+  token: string
+  content: string
+  created_at: string
+  linux: string
+  windows: string
 }

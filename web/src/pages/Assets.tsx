@@ -4,7 +4,7 @@ import { del, post, put } from '../api'
 import { can, useAuth } from '../auth'
 import { CopyButton, ErrorBox, Loading, Tabs, VerdictPill, useLoad } from '../components/ui'
 import { dateTime, daysLeft, kindLabel, proofMethodLabel, statusLabel } from '../format'
-import type { Asset } from '../types'
+import type { Asset, FileCanary } from '../types'
 
 function ownership(a: Asset): { label: string; tone: string; sub: string } {
   const d = daysLeft(a.proof_valid_until)
@@ -275,6 +275,7 @@ export function AssetDetail() {
           )}
         </section>
         <aside className="col-1 stack">
+          <FileCanaryCard asset={a} canEdit={analyst} />
           <section className="card">
             <h2>Détails</h2>
             <div className="kv"><span>URL par défaut</span><span className="mono break">{a.default_url || '—'}</span></div>
@@ -298,6 +299,59 @@ export function AssetDetail() {
         </aside>
       </div>
     </>
+  )
+}
+
+function FileCanaryCard({ asset, canEdit }: { asset: Asset; canEdit: boolean }) {
+  const { data, setData, loading } = useLoad<FileCanary | null>(`/api/assets/${asset.id}/canary`)
+  const [path, setPath] = useState('/opt/opencvec/canary.txt')
+  const [err, setErr] = useState('')
+  const [editing, setEditing] = useState(false)
+  if (loading && !data) return null
+  const save = async () => {
+    setErr('')
+    try { setData(await post<FileCanary>(`/api/assets/${asset.id}/canary`, { path })); setEditing(false) } catch (e) { setErr((e as Error).message) }
+  }
+  const download = (c: FileCanary) => {
+    const url = URL.createObjectURL(new Blob([c.content], { type: 'text/plain' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = c.path.split(/[\\/]/).pop() || 'canary.txt'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  return (
+    <section className="card">
+      <h2>Canari fichier</h2>
+      <p className="small muted" style={{ margin: 0, lineHeight: 1.55 }}>
+        Un fichier au contenu unique, déposé sur la machine. Les plugins d'exploitation prouvent la faille en le relisant ou en l'exfiltrant vers le récepteur, sans toucher à rien d'autre. Lu en dehors d'un check, il déclenche une alerte de compromission.
+      </p>
+      {data && !editing ? (
+        <>
+          <div className="kv"><span>Chemin</span><span className="mono break">{data.path}</span></div>
+          <div className="kv"><span>Contenu</span><span className="mono" style={{ color: 'var(--accent)' }}>{data.token}</span></div>
+          <span className="label">Dépôt sur l'asset</span>
+          <pre className="code">{data.linux || data.windows}</pre>
+          <div className="btns">
+            <CopyButton text={data.linux || data.windows} />
+            <button type="button" className="btn small" onClick={() => download(data)}>Télécharger le fichier</button>
+            {canEdit && <button type="button" className="btn small" onClick={() => { setPath(data.path); setEditing(true) }}>Changer / renouveler</button>}
+          </div>
+          <p className="hint">Généré le {dateTime(data.created_at)}. Après un renouvellement, redéposez le fichier : l'ancien contenu ne prouve plus rien.</p>
+        </>
+      ) : canEdit ? (
+        <>
+          <div className="field">
+            <label htmlFor="cpath">Chemin absolu sur l'asset</label>
+            <input id="cpath" className="input mono" value={path} onChange={(e) => setPath(e.target.value)} />
+            <p className="hint">Linux : /opt/opencvec/canary.txt · Windows : C:\ProgramData\OpenCVEC\canary.txt. Le fichier doit être lisible par le service testé.</p>
+          </div>
+          <ErrorBox error={err} />
+          <div className="btns"><button type="button" className="btn primary small" onClick={() => void save()}>{data ? 'Générer un nouveau jeton' : 'Générer le canari'}</button>
+            {editing && <button type="button" className="btn small" onClick={() => setEditing(false)}>Annuler</button>}</div>
+        </>
+      ) : <p className="muted small" style={{ margin: 0 }}>Aucun canari fichier déposé.</p>}
+    </section>
   )
 }
 

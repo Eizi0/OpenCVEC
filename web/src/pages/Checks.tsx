@@ -4,7 +4,7 @@ import { post } from '../api'
 import { can, useAuth } from '../auth'
 import { CallbackPill, ErrorBox, Loading, ModePill, VerdictPill, useLoad } from '../components/ui'
 import { ago, dateTime, daysLeft, isPending, statusLabel, verdictLabel } from '../format'
-import type { Asset, Campaign, Check, CheckFull, CheckerInfo, Settings } from '../types'
+import type { Asset, Campaign, Check, CheckFull, CheckerInfo, FileCanary, Settings } from '../types'
 
 // ---------------------------------------------------------------------------------------------
 
@@ -19,6 +19,8 @@ export function Launch() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const asset = assets?.find((a) => a.id === assetID)
+  const { data: fileCanary } = useLoad<FileCanary | null>(assetID ? `/api/assets/${assetID}/canary` : null)
+  const needsFile = (c: CheckerInfo) => c.requires_file_canary && !fileCanary
 
   useEffect(() => {
     if (!assetID && assets) {
@@ -37,6 +39,12 @@ export function Launch() {
   useEffect(() => {
     if (suggested.size && picked.size === 0) setPicked(new Set(suggested))
   }, [suggested]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Un checker qui exige un canari fichier absent est retiré de la sélection.
+  useEffect(() => {
+    if (!checkers) return
+    const blocked = checkers.filter(needsFile).map((c) => c.id)
+    if (blocked.some((id) => picked.has(id))) setPicked(new Set([...picked].filter((id) => !blocked.includes(id))))
+  }, [fileCanary, checkers, assetID]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function launch() {
     setBusy(true)
@@ -88,15 +96,17 @@ export function Launch() {
           <section className="card">
             <h2>2. Checkers</h2>
             {checkers?.map((c) => (
-              <label key={c.id} className="check" style={{ padding: '0 12px', borderRadius: 8, background: 'var(--field)', border: '1px solid var(--line)' }}>
-                <input type="checkbox" checked={picked.has(c.id)} onChange={(e) => {
+              <label key={c.id} className="check" style={{ padding: '0 12px', borderRadius: 8, background: 'var(--field)', border: '1px solid var(--line)', opacity: needsFile(c) ? 0.55 : 1 }}>
+                <input type="checkbox" disabled={needsFile(c)} checked={picked.has(c.id)} onChange={(e) => {
                   const n = new Set(picked)
                   if (e.target.checked) n.add(c.id)
                   else n.delete(c.id)
                   setPicked(n)
                 }} />
                 <span style={{ flex: '1 1 auto' }}>{c.name} <span className="small dim">· {c.cves.join(', ')}</span></span>
-                {suggested.has(c.id) && <span className="small" style={{ color: 'var(--accent)' }}>suggéré</span>}
+                {needsFile(c) && asset && <Link to={`/assets/${asset.id}`} className="small">canari fichier requis</Link>}
+                {c.source === 'plugin' && <span className="small dim">plugin</span>}
+                {suggested.has(c.id) && !needsFile(c) && <span className="small" style={{ color: 'var(--accent)' }}>suggéré</span>}
                 <ModePill mode={c.mode} />
               </label>
             ))}

@@ -9,7 +9,7 @@ import type { AuditEntry, Asset, Callback, Campaign, ReportRow } from '../types'
 // ---------------------------------------------------------------------------------------------
 
 export function Callbacks() {
-  const [f, setF] = useState<'all' | 'correlated' | 'rejected' | 'selftest'>('all')
+  const [f, setF] = useState<'all' | 'correlated' | 'rejected' | 'alerts' | 'selftest'>('all')
   const { data, error } = useLoad<Callback[]>(`/api/callbacks${f === 'all' ? '' : `?status=${f}`}`, 5000)
   const [open, setOpen] = useState<number | null>(null)
   return (
@@ -20,7 +20,7 @@ export function Callbacks() {
           <p className="lead">Tout ce que reçoit le récepteur, y compris les requêtes rejetées (jeton inconnu, expiré ou rejoué). Les requêtes rejetées ne produisent jamais de verdict.</p>
         </div>
       </header>
-      <Tabs label="Filtrer" value={f} onChange={setF} items={[['all', 'Tous'], ['correlated', 'Corrélés'], ['rejected', 'Rejetés'], ['selftest', 'Auto-tests']]} />
+      <Tabs label="Filtrer" value={f} onChange={setF} items={[['all', 'Tous'], ['correlated', 'Corrélés'], ['rejected', 'Rejetés'], ['alerts', 'Alertes'], ['selftest', 'Auto-tests']]} />
       <ErrorBox error={error} />
       {!data ? !error && <Loading /> : (
         <div className="card flush table-wrap">
@@ -37,7 +37,7 @@ export function Callbacks() {
                     <td className="mono">{c.source_ip}
                       {c.source_matches !== null && c.check_id && <div className="sub" style={{ color: c.source_matches ? 'var(--green)' : 'var(--accent)', fontFamily: 'Inter, sans-serif' }}>{c.source_matches ? '= IP de l’asset' : '≠ IP de l’asset (résolveur)'}</div>}
                     </td>
-                    <td className="muted">{c.check_id ? <Link to={`/checks/${c.check_id}`} onClick={(e) => e.stopPropagation()}>{c.asset_host} · {c.checker}</Link> : c.status === 'unknown' ? 'jeton inconnu ou signature invalide' : c.status === 'selftest' ? 'auto-test du récepteur' : '—'}</td>
+                    <td className="muted">{c.check_id ? <Link to={`/checks/${c.check_id}`} onClick={(e) => e.stopPropagation()}>{c.asset_host} · {c.checker}</Link> : c.status === 'honeytoken' ? <Link to="/assets" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--red)' }}>canari fichier de {c.asset_host} lu hors check</Link> : c.status === 'unknown' ? 'jeton inconnu ou signature invalide' : c.status === 'selftest' ? 'auto-test du récepteur' : '—'}</td>
                     <td><CallbackPill s={c.status} /></td>
                   </tr>
                   {open === c.id && (

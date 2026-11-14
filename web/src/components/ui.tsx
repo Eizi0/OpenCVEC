@@ -49,12 +49,17 @@ export function VerdictPill({ v }: { v: string }) {
 }
 
 export function CallbackPill({ s }: { s: string }) {
-  const tone = s === 'correlated' ? 'green' : s === 'duplicate' || s === 'selftest' ? 'blue' : 'gray'
+  const tone = s === 'honeytoken' ? 'red' : s === 'correlated' ? 'green' : s === 'duplicate' || s === 'selftest' ? 'blue' : 'gray'
   return <span className={`pill ${tone}`}>{callbackLabel[s] ?? s}</span>
 }
 
 export function ModePill({ mode }: { mode: string }) {
   return mode === 'canary' ? <span className="pill yellow">Canari</span> : <span className="pill purple">Empreinte</span>
+}
+
+export function SourcePill({ source, version, publisher, signed = true }: { source: string; version?: string; publisher?: string; signed?: boolean }) {
+  if (source !== 'plugin') return <span className="pill gray">Intégré</span>
+  return <span className={`pill ${signed ? 'blue' : 'red'}`} title={publisher}>Plugin v{version}{publisher ? ` · ${publisher}` : ' · non signé'}</span>
 }
 
 export function ErrorBox({ error }: { error: string }) {

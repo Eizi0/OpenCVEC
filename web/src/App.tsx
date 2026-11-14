@@ -11,6 +11,7 @@ import { Catalog } from './pages/Catalog'
 import { CampaignView, Campaigns, CheckResult, Launch } from './pages/Checks'
 import { Dashboard } from './pages/Dashboard'
 import { Login } from './pages/Login'
+import { Plugins } from './pages/Plugins'
 import { Audit, Callbacks, Reports } from './pages/Trace'
 import type { Me } from './types'
 
@@ -60,6 +61,7 @@ export function App() {
                 <Route path="rapports" element={<Reports />} />
                 {admin && <Route path="audit" element={<Audit />} />}
                 {admin && <Route path="admin" element={<Admin />} />}
+                {admin && <Route path="plugins" element={<Plugins />} />}
                 <Route path="compte" element={<Account />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </>

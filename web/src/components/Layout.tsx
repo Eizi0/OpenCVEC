@@ -31,6 +31,7 @@ export function Layout() {
           <NavLink to="/callbacks">Callbacks canari</NavLink>
           <NavLink to="/rapports">Rapports</NavLink>
           {can(role, 'admin') && <NavLink to="/audit">Journal d'audit</NavLink>}
+          {can(role, 'admin') && <NavLink to="/plugins">Plugins</NavLink>}
           {can(role, 'admin') && <NavLink to="/admin">Administration</NavLink>}
         </div>
         <div className="side-foot">

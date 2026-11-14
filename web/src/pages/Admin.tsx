@@ -201,7 +201,7 @@ function ReceiverAdmin() {
       setErr((e2 as Error).message)
     }
   }
-  const num = (k: keyof Settings) => ({
+  const num = (k: Exclude<keyof Settings, 'allow_unsigned_plugins'>) => ({
     value: form?.[k] ?? 0,
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...(form as Settings), [k]: Number(e.target.value) }),
   })
@@ -222,7 +222,7 @@ function ReceiverAdmin() {
           ) : <Loading />}
         </section>
         <form className="card" onSubmit={save}>
-          <h2>Canaris et limites</h2>
+          <h2>Canaris, limites et plugins</h2>
           {form ? (
             <div className="row" style={{ gap: 14 }}>
               <div className="field" style={{ flex: '1 1 180px' }}><label htmlFor="ttl">Durée de vie du canari (min)</label><input id="ttl" className="input" type="number" min={5} max={60} {...num('canary_ttl_minutes')} /></div>
@@ -231,6 +231,12 @@ function ReceiverAdmin() {
               <div className="field" style={{ flex: '1 1 180px' }}><label htmlFor="cpu">Checks par utilisateur et par heure</label><input id="cpu" className="input" type="number" min={1} max={1000} {...num('checks_per_user_hour')} /></div>
             </div>
           ) : <Loading />}
+          {form && (
+            <label className="check" style={{ alignItems: 'flex-start', minHeight: 0 }}>
+              <input type="checkbox" checked={form.allow_unsigned_plugins} onChange={(e) => setForm({ ...form, allow_unsigned_plugins: e.target.checked })} style={{ marginTop: 3 }} />
+              <span><strong>Mode développeur</strong> : autoriser les plugins non signés.<span className="hint" style={{ display: 'block' }}>Réservé à l'écriture et au test de plugins. Activation, désactivation et chaque installation non signée sont journalisées.</span></span>
+            </label>
+          )}
           <ErrorBox error={err} />
           {msg && <div className="notice ok"><strong>{msg}</strong></div>}
           <div className="btns"><button className="btn primary" type="submit">Enregistrer</button></div>

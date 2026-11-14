@@ -19,6 +19,15 @@ export function Dashboard() {
         {can(me.user.role, 'analyst') && <Link className="btn primary" to="/checks/nouveau">Lancer un check</Link>}
       </header>
       <ErrorBox error={error} />
+      {data && data.alerts.length > 0 && (
+        <div className="notice err" role="alert">
+          <strong>Canari fichier lu hors d'un check : compromission probable</strong>
+          {data.alerts.slice(0, 3).map((a) => (
+            <span key={a.id}><span className="mono">{a.asset_host}</span> · {ago(a.received_at)} · {a.proto.toUpperCase()} {a.qtype} depuis <span className="mono">{a.source_ip}</span></span>
+          ))}
+          <span className="small">Le contenu du fichier canari, connu seulement d'OpenCVEC et de la machine, a été lu puis transmis. <Link to="/callbacks">Voir les alertes</Link></span>
+        </div>
+      )}
       {!data ? (
         !error && <Loading />
       ) : (

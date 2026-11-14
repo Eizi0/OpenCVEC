@@ -3,6 +3,6 @@ web/node_modules
 web/dist
 lab
 .github
-docs
 *.md
 !README.md
+docs

@@ -1,5 +1,7 @@
 # Étape 1 : application web
-FROM node:25-alpine AS web
+# Les étapes de compilation tournent sur l'architecture de la machine de build (pas d'émulation) ;
+# seul le binaire Go est compilé pour la cible (amd64, arm64…).
+FROM --platform=$BUILDPLATFORM node:25-alpine AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
@@ -7,13 +9,15 @@ COPY web/ ./
 RUN npm run build
 
 # Étape 2 : binaire Go (le front est embarqué)
-FROM golang:1.27-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/web/dist ./web/dist
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/opencvec ./cmd/opencvec
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/opencvec ./cmd/opencvec
 
 # Étape 3 : image finale minimale, utilisateur non root
 FROM gcr.io/distroless/static-debian12:nonroot

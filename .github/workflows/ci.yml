@@ -44,3 +44,11 @@ jobs:
           go test -race -count=1 ./...
       - name: Image Docker
         run: docker build -t opencvec:ci .
+      - name: Plugins officiels (format et signatures)
+        run: |
+          go build -o /tmp/opencvec ./cmd/opencvec
+          /tmp/opencvec plugin lint plugins/*.yaml
+          printf '%s\n' "$(go run ./scripts/officialkey)" > /tmp/official.pub
+          /tmp/opencvec plugin verify /tmp/official.pub plugins/*.yaml
+      - name: Image arm64 (compilation croisée)
+        run: docker buildx build --platform linux/arm64 -t opencvec:ci-arm64 .

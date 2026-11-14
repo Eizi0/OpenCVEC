@@ -37,6 +37,7 @@ services:
       OPENCVEC_TRUST_PROXY: ${OPENCVEC_TRUST_PROXY:-false}
       OPENCVEC_SECURE_COOKIES: ${OPENCVEC_SECURE_COOKIES:-false}
       OPENCVEC_REQUIRE_MFA: ${OPENCVEC_REQUIRE_MFA:-false}
+      OPENCVEC_PLUGIN_REGISTRY: ${OPENCVEC_PLUGIN_REGISTRY:-https://raw.githubusercontent.com/Eizi0/OpenCVEC/main/plugins/}
     # Ports < 1024 sans privilèges root dans le conteneur.
     sysctls:
       net.ipv4.ip_unprivileged_port_start: 0

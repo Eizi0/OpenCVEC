@@ -5,6 +5,8 @@ OpenCVEC permet à une organisation de **prouver qu'une CVE touche ses propres a
 
 L'outil est conçu pour ne pas pouvoir être retourné contre un tiers : pas de check sans preuve de propriété de l'asset, pas de payload ni d'URL de rappel modifiable, et des connexions sortantes confinées au périmètre prouvé.
 
+Il vise les organisations à petit budget : un conteneur de 7 Mo qui occupe environ 11 Mio de RAM au repos, plus PostgreSQL. Il s'installe dans le SI ou sur un VPS (voir [docs/deploiement.md](docs/deploiement.md)). Les nouvelles CVE s'ajoutent par **plugins signés**, sans mise à jour de l'application.
+
 ## Fonctionnement
 
 1. **Déclarer un asset** (nom de domaine, IP ou plage) et **prouver sa propriété** :
@@ -18,7 +20,30 @@ L'outil est conçu pour ne pas pouvoir être retourné contre un tiers : pas de 
 
 Les requêtes reçues hors check (jeton inconnu ou forgé, canari expiré, rejeu après verdict) sont journalisées comme rejetées et ne produisent jamais de verdict.
 
-## Checkers
+### Canari fichier
+
+Pour les failles qui donnent accès aux fichiers ou à l'exécution de code, l'entreprise dépose sur l'asset un **canari fichier**. C'est un fichier dont le contenu est un jeton unique, généré depuis la fiche de l'asset, avec la commande de dépôt pour Linux ou Windows. Le check exploite la faille uniquement pour **relire ce fichier**, et la preuve est obtenue sans toucher à rien d'autre :
+- soit le jeton revient dans la réponse ;
+- soit la cible l'exfiltre vers le récepteur DNS.
+
+Le canari sert aussi de **jeton piège** : s'il est lu en dehors d'un check, OpenCVEC lève une alerte de compromission (tableau de bord, callbacks, journal d'audit).
+
+## Plugins
+
+Un plugin est un fichier YAML **signé** (Ed25519) qui décrit les étapes d'un check : requêtes HTTP ou échanges TCP/TLS, extractions, règle de version et mode de preuve. Il s'installe depuis **Plugins › Catalogue officiel**, par URL ou par fichier. Avant l'installation, l'administrateur voit le contenu complet, les étapes et le résultat de la vérification de signature.
+
+- Le moteur impose le périmètre : une étape donne un chemin ou un port, jamais un hôte. Les variables sont limitées à la cible et aux canaris, et les champs inconnus sont refusés.
+- Seuls les éditeurs de confiance sont acceptés. L'éditeur officiel est intégré, et chacun peut ajouter la clé de son équipe. Un plugin non signé exige le **mode développeur**, qui est journalisé.
+- Retirer un éditeur ou désactiver un plugin le retire immédiatement du catalogue.
+- Pour écrire, signer et publier un plugin : `opencvec plugin keygen | lint | sign | verify | index`. Voir [docs/plugins.md](docs/plugins.md).
+
+| Plugin officiel | CVE | Preuve | Validation en labo |
+|---|---|---|---|
+| ApacheTraversalChecker | CVE-2021-41773 | canari fichier relu | prouvé sur httpd 2.4.49 (configuration vulnérable), non concluant sur 2.4.51 |
+| SpringFunctionChecker | CVE-2022-22963 | callback DNS (SpEL) | prouvé sur Spring Cloud Function 3.2.2 |
+| RegreSSHionChecker | CVE-2024-6387 | bannière SSH (TCP) | probable sur OpenSSH 9.6, corrigé sur 9.9 |
+
+## Checkers intégrés
 
 | Checker | CVE | Mode | Validation en labo |
 |---|---|---|---|
@@ -44,11 +69,12 @@ Verdicts possibles : prouvé, probable, exposé, version corrigée, non concluan
 - **Limites de débit** par asset (par jour) et par utilisateur (par heure).
 - **Rôles** administrateur, analyste et lecteur ; double authentification TOTP, imposable à tous.
 - **Journal d'audit** en ajout seul : un déclencheur PostgreSQL interdit UPDATE et DELETE, et la chaîne d'empreintes SHA-256 est vérifiable depuis l'interface. Chaque refus y est inscrit.
+- **Plugins signés** : éditeurs de confiance, revue avant installation, signature revérifiée à chaque chargement, aucune donnée de réponse conservée.
 - **Rapports** HTML imprimables (PDF via le navigateur) ou JSON, dont l'empreinte SHA-256 est conservée par l'instance.
 
 ## Installation
 
-Prérequis : Docker, un nom de domaine dont vous pouvez déléguer une sous-zone, et les ports 53 (UDP et TCP) et 80 du serveur joignables depuis Internet.
+Le guide complet, en mode interne (redirecteur DNS conditionnel, sans domaine public) ou externe (délégation NS), est dans [docs/deploiement.md](docs/deploiement.md). Démarrage rapide en mode externe : Docker, un nom de domaine dont vous pouvez déléguer une sous-zone, et les ports 53 (UDP et TCP) et 80 joignables depuis Internet.
 
 ```sh
 cp .env.example .env    # puis renseigner les valeurs
@@ -79,6 +105,7 @@ Placez l'interface (port 8080) derrière un proxy inverse HTTPS, avec `OPENCVEC_
 | `OPENCVEC_NS_NAME` | serveur de noms annoncé | `ns1.<zone>` |
 | `OPENCVEC_DNS_ADDR` / `OPENCVEC_CANARY_HTTP_ADDR` | écoute DNS / HTTP du récepteur (`off` pour désactiver) | `:5353` / `:8081` |
 | `OPENCVEC_PROOF_RESOLVERS` | résolveurs des preuves TXT et de l'auto-test | `1.1.1.1,8.8.8.8,9.9.9.9` |
+| `OPENCVEC_PLUGIN_REGISTRY` | dépôt des plugins officiels (dossier contenant `index.json`) | dossier `plugins/` du dépôt GitHub |
 | `OPENCVEC_ADMIN_EMAIL` / `OPENCVEC_ADMIN_PASSWORD` | premier administrateur | `admin@opencvec.local` |
 | `OPENCVEC_REQUIRE_MFA` | double authentification obligatoire | `false` |
 | `OPENCVEC_TRUST_PROXY`, `OPENCVEC_SECURE_COOKIES` | déploiement derrière HTTPS | `false` |
@@ -91,7 +118,8 @@ Les durées (vie du canari, attente du callback) et les limites de débit se rè
 
 ```sh
 docker compose -f lab/compose.yaml up -d --build
-./scripts/lab-e2e.sh      # 5 scénarios, verdicts attendus vérifiés via l'API
+./scripts/lab-e2e.sh            # checkers intégrés : 5 scénarios
+./scripts/lab-plugins-e2e.sh    # plugins : 5 scénarios, plugin altéré refusé, alerte de jeton piège
 ```
 
 L'interface du labo est servie sur http://127.0.0.1:8095 (identifiants dans `lab/compose.yaml`).
@@ -106,6 +134,20 @@ cd web && npm ci && npm test && npm run build
 ```
 
 Pile : Go (API, récepteur DNS `miekg/dns`, runner), PostgreSQL, React et Vite (application embarquée dans le binaire), image distroless non root.
+
+## Limites
+
+Une preuve par canari n'est possible que si la faille permet de faire évaluer une donnée, de déclencher une connexion sortante ou de lire le canari fichier.
+- Les fuites mémoire, les contournements d'authentification, les failles côté client et les escalades de privilèges locales ne se prouvent pas ainsi.
+- Les corruptions mémoire exigeraient un véritable exploit : elles restent en mode empreinte.
+
+Un « non concluant » ne veut pas dire « non vulnérable ». Il peut venir :
+- d'un filtrage des sorties DNS ou HTTP ;
+- d'un WAF ;
+- d'un point d'injection non couvert ;
+- d'un déclenchement différé (traitement des journaux plus tard).
+
+Enfin, un équipement qui résout les noms vus dans le trafic (sandbox, EDR, passerelle de messagerie) peut déclencher un canari à la place de l'application. Le point d'injection et le délai aident à trancher.
 
 ## Usage responsable
 

@@ -10,7 +10,7 @@ The tool is designed so that it cannot be turned against a third party:
 
 It targets small-budget teams. It ships as a single 7 MB container that uses about 11 MiB of RAM at idle, plus PostgreSQL, and runs either inside the internal network or on a small VPS (see [docs/deployment.md](docs/deployment.md)). New CVEs are added through **signed plugins**, with no application update.
 
-> The web interface is currently in French. Code, API and documentation are in English and French.
+> The web interface and code comments are currently in French; the documentation is in English.
 
 ## How it works
 

@@ -25,6 +25,7 @@ import (
 	"github.com/Eizi0/OpenCVEC/internal/config"
 	"github.com/Eizi0/OpenCVEC/internal/httpapi"
 	"github.com/Eizi0/OpenCVEC/internal/maintenance"
+	"github.com/Eizi0/OpenCVEC/internal/notify"
 	"github.com/Eizi0/OpenCVEC/internal/plugin"
 	"github.com/Eizi0/OpenCVEC/internal/proof"
 	"github.com/Eizi0/OpenCVEC/internal/receiver"
@@ -256,11 +257,13 @@ func serve() error {
 
 	corr := &receiver.Correlator{DB: st.Pool, Signer: signer, Zone: cfg.CanaryZone, Log: log}
 	auditLog := &audit.Log{DB: st.Pool}
+	notifier := &notify.Notifier{DB: st.Pool, Box: box, PublicURL: cfg.PublicURL, Log: log}
 	corr.OnHoneytoken = func(assetID int64, ev receiver.Event) {
 		var host string
 		_ = st.Pool.QueryRow(context.Background(), `SELECT host FROM assets WHERE id = $1`, assetID).Scan(&host)
-		_ = auditLog.Write(context.Background(), nil, "récepteur", "Alerte canari fichier",
-			fmt.Sprintf("%s : le contenu du canari fichier est revenu hors de tout check (%s %s depuis %s). Compromission probable de l'asset.", host, ev.Proto, ev.QType, ev.Source), ev.Source)
+		text := fmt.Sprintf("%s : le contenu du canari fichier est revenu hors de tout check (%s %s depuis %s). Compromission probable de l'asset.", host, ev.Proto, ev.QType, ev.Source)
+		_ = auditLog.Write(context.Background(), nil, "récepteur", "Alerte canari fichier", text, ev.Source)
+		notifier.Honeytoken(host, text)
 	}
 	plugins := &plugin.Store{DB: st.Pool, Log: log, Official: plugin.OfficialPublicKey}
 	if err := plugins.EnsureOfficial(ctx); err != nil {
@@ -282,6 +285,7 @@ func serve() error {
 		Audit:    auditLog,
 		Corr:     corr,
 		Plugins:  plugins,
+		Notifier: notifier,
 		Verifier: proof.Verifier{Resolvers: cfg.ProofResolvers},
 	}
 
@@ -313,6 +317,7 @@ func serve() error {
 	}
 
 	run := &runner.Runner{DB: st.Pool, Corr: corr, Signer: signer, Zone: cfg.CanaryZone, Log: log}
+	run.OnVerdict = notifier.Verdict
 	if err := run.Start(ctx, cfg.Workers); err != nil {
 		return err
 	}

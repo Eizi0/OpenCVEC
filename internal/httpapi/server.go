@@ -20,6 +20,7 @@ import (
 	"github.com/Eizi0/OpenCVEC/internal/audit"
 	"github.com/Eizi0/OpenCVEC/internal/auth"
 	"github.com/Eizi0/OpenCVEC/internal/config"
+	"github.com/Eizi0/OpenCVEC/internal/notify"
 	"github.com/Eizi0/OpenCVEC/internal/plugin"
 	"github.com/Eizi0/OpenCVEC/internal/proof"
 	"github.com/Eizi0/OpenCVEC/internal/receiver"
@@ -55,6 +56,7 @@ type Server struct {
 	Corr     *receiver.Correlator
 	Verifier proof.Verifier
 	Plugins  *plugin.Store
+	Notifier *notify.Notifier
 	// Version de l'application (affichée dans l'interface).
 	Version string
 	// DNSUp et HTTPUp indiquent si les listeners du récepteur ont démarré.
@@ -142,6 +144,9 @@ func (s *Server) Handler() http.Handler {
 	r(RoleAdmin, "GET /api/settings", s.getSettings)
 	r(RoleAdmin, "PUT /api/settings", s.putSettings)
 	r(RoleAdmin, "POST /api/receiver/selftest", s.selftest)
+	r(RoleAdmin, "GET /api/settings/notifications", s.getNotifications)
+	r(RoleAdmin, "PUT /api/settings/notifications", s.putNotifications)
+	r(RoleAdmin, "POST /api/settings/notifications/test", s.testNotifications)
 	r(RoleAdmin, "GET /api/plugins", s.listPlugins)
 	r(RoleAdmin, "GET /api/plugins/registry", s.pluginRegistry)
 	r(RoleAdmin, "POST /api/plugins/preview", s.previewPlugin)

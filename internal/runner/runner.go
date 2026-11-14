@@ -31,6 +31,8 @@ type Runner struct {
 	Log    *slog.Logger
 	// HTTPTimeout borne chaque requête vers la cible (10 s par défaut).
 	HTTPTimeout time.Duration
+	// OnVerdict est appelé après un verdict prouvé, probable ou exposé (notifications).
+	OnVerdict func(checkID int64, verdict, summary string)
 
 	queue chan int64
 }
@@ -129,9 +131,14 @@ func (r *Runner) setStatus(ctx context.Context, id int64, status string, d Detai
 
 func (r *Runner) finish(ctx context.Context, id int64, verdict, summary string, d Detail, status string) {
 	b, _ := json.Marshal(d)
-	if _, err := r.DB.Exec(ctx, `UPDATE checks SET status = $2, verdict = $3, summary = $4, detail = $5, finished_at = now()
-		WHERE id = $1 AND status NOT IN ('done', 'error', 'cancelled')`, id, status, verdict, summary, b); err != nil {
+	tag, err := r.DB.Exec(ctx, `UPDATE checks SET status = $2, verdict = $3, summary = $4, detail = $5, finished_at = now()
+		WHERE id = $1 AND status NOT IN ('done', 'error', 'cancelled')`, id, status, verdict, summary, b)
+	if err != nil {
 		r.Log.Error("clôture d'un check", "check", id, "err", err)
+		return
+	}
+	if tag.RowsAffected() == 1 && r.OnVerdict != nil && (verdict == checks.VerdictProved || verdict == checks.VerdictProbable || verdict == checks.VerdictExposed) {
+		r.OnVerdict(id, verdict, summary)
 	}
 }
 

@@ -22,6 +22,7 @@ import (
 	"github.com/Eizi0/OpenCVEC/internal/auth"
 	"github.com/Eizi0/OpenCVEC/internal/canary"
 	"github.com/Eizi0/OpenCVEC/internal/config"
+	"github.com/Eizi0/OpenCVEC/internal/notify"
 	"github.com/Eizi0/OpenCVEC/internal/plugin"
 	"github.com/Eizi0/OpenCVEC/internal/proof"
 	"github.com/Eizi0/OpenCVEC/internal/receiver"
@@ -59,7 +60,10 @@ func newEnv(t *testing.T) *env {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	run := &runner.Runner{DB: db, Corr: corr, Signer: signer, Zone: zone, Log: log, HTTPTimeout: 3 * time.Second}
+	box0, _ := secrets.New("")
+	notifier := &notify.Notifier{DB: db, Box: box0, PublicURL: "https://opencvec.test", Log: log}
+	corr.OnHoneytoken = func(assetID int64, ev receiver.Event) { notifier.Honeytoken(ev.Source, "test") }
+	run := &runner.Runner{DB: db, Corr: corr, Signer: signer, Zone: zone, Log: log, HTTPTimeout: 3 * time.Second, OnVerdict: notifier.Verdict}
 	if err := run.Start(ctx, 2); err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +71,7 @@ func newEnv(t *testing.T) *env {
 	srv := &Server{
 		Cfg: config.Config{CanaryZone: zone, NSName: "ns1." + zone, CanaryIP: "127.0.0.1"}, DB: db, Log: log, Secrets: box,
 		Audit: &audit.Log{DB: db}, Runner: run, Corr: corr, Verifier: proof.Verifier{},
-		Plugins: &plugin.Store{DB: db, Log: log, Official: plugin.OfficialPublicKey},
+		Plugins: &plugin.Store{DB: db, Log: log, Official: plugin.OfficialPublicKey}, Notifier: notifier,
 	}
 	if err := srv.Plugins.EnsureOfficial(ctx); err != nil {
 		t.Fatal(err)

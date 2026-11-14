@@ -5,7 +5,7 @@ import { CopyButton, ErrorBox, Loading, useLoad } from '../components/ui'
 import { dateTime, daysLeft, roleLabel } from '../format'
 import type { AllowRow, Receiver, Role, Settings, UserRow } from '../types'
 
-type Tab = 'users' | 'allow' | 'recv'
+type Tab = 'users' | 'allow' | 'recv' | 'notif'
 
 export function Admin() {
   const [tab, setTab] = useState<Tab>('users')
@@ -13,13 +13,14 @@ export function Admin() {
     <>
       <h1>Administration</h1>
       <div role="tablist" aria-label="Sections" className="tabline">
-        {([['users', 'Utilisateurs et rôles'], ['allow', 'Liste blanche réseau interne'], ['recv', 'Récepteur canari et limites']] as [Tab, string][]).map(([id, l]) => (
+        {([['users', 'Utilisateurs et rôles'], ['allow', 'Liste blanche réseau interne'], ['recv', 'Récepteur canari et limites'], ['notif', 'Notifications']] as [Tab, string][]).map(([id, l]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{l}</button>
         ))}
       </div>
       {tab === 'users' && <Users />}
       {tab === 'allow' && <Allowlist />}
       {tab === 'recv' && <ReceiverAdmin />}
+      {tab === 'notif' && <Notifications />}
     </>
   )
 }
@@ -265,5 +266,90 @@ function ReceiverAdmin() {
         <p className="hint">Vérifie l'écoute locale, puis la délégation publique en interrogeant les résolveurs configurés : un échec de ces derniers signale une délégation NS absente ou un port 53 fermé.</p>
       </section>
     </div>
+  )
+}
+
+interface NotifConfig {
+  webhook_url: string
+  webhook_format: 'json' | 'slack' | 'teams'
+  email_to: string
+  smtp_host: string
+  smtp_port: number
+  smtp_security: 'starttls' | 'tls' | 'none'
+  smtp_user: string
+  smtp_password: string
+  smtp_from: string
+  on_honeytoken: boolean
+  on_proved: boolean
+  on_probable: boolean
+  on_schedule: boolean
+}
+
+function Notifications() {
+  const { data } = useLoad<NotifConfig>('/api/settings/notifications')
+  const [c, setC] = useState<NotifConfig | null>(null)
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+  const [test, setTest] = useState<Record<string, string> | null>(null)
+  useEffect(() => { if (data && !c) setC(data) }, [data, c])
+  if (!c) return <Loading />
+  const set = (k: keyof NotifConfig, v: unknown) => setC({ ...c, [k]: v })
+  const txt = (k: keyof NotifConfig) => ({ value: String(c[k] ?? ''), onChange: (e: React.ChangeEvent<HTMLInputElement>) => set(k, e.target.value) })
+  return (
+    <form className="row" onSubmit={async (e) => {
+      e.preventDefault()
+      setErr(''); setMsg('')
+      try { await put('/api/settings/notifications', c); setMsg('Notifications enregistrées.') } catch (e2) { setErr((e2 as Error).message) }
+    }}>
+      <div className="col-2 stack">
+        <section className="card">
+          <h2>Webhook</h2>
+          <p className="hint">Slack, Microsoft Teams (Incoming Webhook / Workflows), SIEM ou n'importe quel point de collecte JSON.</p>
+          <div className="row" style={{ gap: 12 }}>
+            <div className="field" style={{ flex: '3 1 320px' }}><label htmlFor="wh">URL</label><input id="wh" className="input mono" placeholder="https://hooks.slack.com/services/…" {...txt('webhook_url')} /></div>
+            <div className="field" style={{ flex: '1 1 140px' }}><label htmlFor="wf">Format</label>
+              <select id="wf" className="input" value={c.webhook_format} onChange={(e) => set('webhook_format', e.target.value)}>
+                <option value="json">JSON générique</option><option value="slack">Slack</option><option value="teams">Teams</option>
+              </select></div>
+          </div>
+        </section>
+        <section className="card">
+          <h2>E-mail</h2>
+          <div className="field"><label htmlFor="eto">Destinataires (séparés par des virgules)</label><input id="eto" className="input" placeholder="rssi@exemple.fr, soc@exemple.fr" {...txt('email_to')} /></div>
+          <div className="row" style={{ gap: 12 }}>
+            <div className="field" style={{ flex: '2 1 220px' }}><label htmlFor="sh">Serveur SMTP</label><input id="sh" className="input" {...txt('smtp_host')} /></div>
+            <div className="field" style={{ flex: '1 1 100px' }}><label htmlFor="sp">Port</label><input id="sp" className="input" type="number" value={c.smtp_port} onChange={(e) => set('smtp_port', Number(e.target.value))} /></div>
+            <div className="field" style={{ flex: '1 1 140px' }}><label htmlFor="ss">Sécurité</label>
+              <select id="ss" className="input" value={c.smtp_security} onChange={(e) => set('smtp_security', e.target.value)}>
+                <option value="starttls">STARTTLS</option><option value="tls">TLS</option><option value="none">Aucune</option>
+              </select></div>
+          </div>
+          <div className="row" style={{ gap: 12 }}>
+            <div className="field" style={{ flex: '1 1 200px' }}><label htmlFor="su">Utilisateur</label><input id="su" className="input" autoComplete="off" {...txt('smtp_user')} /></div>
+            <div className="field" style={{ flex: '1 1 200px' }}><label htmlFor="spw">Mot de passe</label><input id="spw" className="input" type="password" autoComplete="new-password" {...txt('smtp_password')} /></div>
+            <div className="field" style={{ flex: '1 1 200px' }}><label htmlFor="sf">Expéditeur</label><input id="sf" className="input" placeholder="opencvec@exemple.fr" {...txt('smtp_from')} /></div>
+          </div>
+          <p className="hint">Le mot de passe est chiffré au repos et n'est jamais réaffiché.</p>
+        </section>
+      </div>
+      <aside className="card col-1">
+        <h2>Événements notifiés</h2>
+        {([['on_honeytoken', 'Canari fichier lu hors check (compromission probable)'], ['on_proved', 'Vulnérabilité prouvée'], ['on_probable', 'Verdict probable ou exposé'], ['on_schedule', 'Échec d\'un check programmé']] as [keyof NotifConfig, string][]).map(([k, l]) => (
+          <label key={k} className="check"><input type="checkbox" checked={Boolean(c[k])} onChange={(e) => set(k, e.target.checked)} />{l}</label>
+        ))}
+        <ErrorBox error={err} />
+        {msg && <div className="notice ok"><strong>{msg}</strong></div>}
+        {test && Object.entries(test).map(([k, v]) => (
+          <div key={k} className={`notice ${v === 'ok' ? 'ok' : 'err'}`}><strong>{k === 'email' ? 'E-mail' : 'Webhook'} : {v === 'ok' ? 'envoyé' : 'échec'}</strong>{v !== 'ok' && <span>{v}</span>}</div>
+        ))}
+        <div className="btns">
+          <button className="btn primary" type="submit">Enregistrer</button>
+          <button className="btn" type="button" onClick={async () => {
+            setErr(''); setTest(null)
+            try { setTest(await post<Record<string, string>>('/api/settings/notifications/test', c)) } catch (e) { setErr((e as Error).message) }
+          }}>Envoyer un test</button>
+        </div>
+      </aside>
+    </form>
   )
 }

@@ -22,8 +22,13 @@ export function Dashboard() {
       {data && data.alerts.length > 0 && (
         <div className="notice err" role="alert">
           <strong>Canari fichier lu hors d'un check : compromission probable</strong>
-          {data.alerts.slice(0, 3).map((a) => (
-            <span key={a.id}><span className="mono">{a.asset_host}</span> · {ago(a.received_at)} · {a.proto.toUpperCase()} {a.qtype} depuis <span className="mono">{a.source_ip}</span></span>
+          {Object.values(data.alerts.reduce<Record<string, { host: string; last: string; n: number; sources: Set<string> }>>((acc, a) => {
+            const g = acc[a.asset_host] ?? (acc[a.asset_host] = { host: a.asset_host, last: a.received_at, n: 0, sources: new Set() })
+            g.n++
+            g.sources.add(a.source_ip)
+            return acc
+          }, {})).map((g) => (
+            <span key={g.host}><span className="mono">{g.host}</span> · dernière lecture {ago(g.last)} · {g.n} requête(s) depuis <span className="mono">{[...g.sources].join(', ')}</span></span>
           ))}
           <span className="small">Le contenu du fichier canari, connu seulement d'OpenCVEC et de la machine, a été lu puis transmis. <Link to="/callbacks">Voir les alertes</Link></span>
         </div>

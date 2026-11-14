@@ -21,10 +21,12 @@ type General struct {
 	ChecksPerUserHour int `json:"checks_per_user_hour"`
 	// AllowUnsignedPlugins (mode développeur) autorise les plugins non signés.
 	AllowUnsignedPlugins bool `json:"allow_unsigned_plugins"`
+	// RetentionDays : durée de conservation du bruit du récepteur et des rapports (0 = illimitée).
+	RetentionDays int `json:"retention_days"`
 }
 
 // Defaults sont les valeurs initiales.
-var Defaults = General{CanaryTTLMinutes: 15, WaitSeconds: 120, ChecksPerAssetDay: 10, ChecksPerUserHour: 60}
+var Defaults = General{CanaryTTLMinutes: 15, WaitSeconds: 120, ChecksPerAssetDay: 10, ChecksPerUserHour: 60, RetentionDays: 180}
 
 // Validate borne les valeurs.
 func (g General) Validate() error {
@@ -39,6 +41,8 @@ func (g General) Validate() error {
 		return errors.New("checks par asset et par jour : entre 1 et 500")
 	case g.ChecksPerUserHour < 1 || g.ChecksPerUserHour > 1000:
 		return errors.New("checks par utilisateur et par heure : entre 1 et 1000")
+	case g.RetentionDays != 0 && (g.RetentionDays < 7 || g.RetentionDays > 3650):
+		return errors.New("conservation : 0 (illimitée) ou entre 7 et 3650 jours")
 	}
 	return nil
 }

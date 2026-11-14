@@ -162,7 +162,10 @@ func TestFileCanaryExfiltrationAndHoneytoken(t *testing.T) {
 		t.Fatalf("exfiltration du canari fichier : %+v", camp.Checks[0])
 	}
 
-	// Hors check : le même jeton déclenche une alerte de compromission.
+	// Hors check : le même jeton déclenche une alerte de compromission, une seule pour des
+	// requêtes répétées (A, AAAA, nouvelles tentatives).
+	exfil()
+	exfil()
 	exfil()
 	var alerts []Callback
 	for i := 0; i < 50 && len(alerts) == 0; i++ {

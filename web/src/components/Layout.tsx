@@ -51,6 +51,7 @@ export function Layout() {
             </span>
           </NavLink>
           <button type="button" className="btn small" onClick={() => void logout()}>Se déconnecter</button>
+          <span className="small dim" style={{ padding: '0 8px' }}>OpenCVEC {me.version}</span>
         </div>
       </nav>
       <main className="main">

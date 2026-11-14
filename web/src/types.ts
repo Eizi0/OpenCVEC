@@ -12,6 +12,7 @@ export interface Me {
   user: User
   require_mfa: boolean
   canary_zone: string
+  version: string
 }
 
 export type Verdict = 'proved' | 'probable' | 'exposed' | 'patched' | 'inconclusive' | 'error' | ''
@@ -225,6 +226,7 @@ export interface Settings {
   checks_per_asset_day: number
   checks_per_user_hour: number
   allow_unsigned_plugins: boolean
+  retention_days: number
 }
 
 export interface PluginRow {

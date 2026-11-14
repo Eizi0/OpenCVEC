@@ -12,12 +12,13 @@ RUN npm run build
 FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
+ARG VERSION=dev
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/web/dist ./web/dist
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/opencvec ./cmd/opencvec
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o /out/opencvec ./cmd/opencvec
 
 # Étape 3 : image finale minimale, utilisateur non root
 FROM gcr.io/distroless/static-debian12:nonroot

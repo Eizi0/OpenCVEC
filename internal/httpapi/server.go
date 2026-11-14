@@ -55,6 +55,8 @@ type Server struct {
 	Corr     *receiver.Correlator
 	Verifier proof.Verifier
 	Plugins  *plugin.Store
+	// Version de l'application (affichée dans l'interface).
+	Version string
 	// DNSUp et HTTPUp indiquent si les listeners du récepteur ont démarré.
 	DNSUp, HTTPUp bool
 
@@ -163,7 +165,7 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusServiceUnavailable, "base de données indisponible")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": s.Version})
 }
 
 // secure ajoute les en-têtes de sécurité et la protection CSRF : toute requête modifiante doit

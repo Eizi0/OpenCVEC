@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { post } from '../api'
 import { Logo } from '../components/ui'
 
@@ -9,6 +9,10 @@ export function Login({ onDone }: { onDone: () => void }) {
   const [mfa, setMfa] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [version, setVersion] = useState('')
+  useEffect(() => {
+    fetch('/api/health').then((r) => r.json()).then((d) => setVersion(d.version ?? '')).catch(() => {})
+  }, [])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -54,7 +58,7 @@ export function Login({ onDone }: { onDone: () => void }) {
             ))}
           </ol>
         </div>
-        <span className="small dim">Instance auto-hébergée · v0.1.0</span>
+        <span className="small dim">Instance auto-hébergée{version ? ` · ${version}` : ''}</span>
       </section>
       <section className="login-form">
         <form onSubmit={submit}>

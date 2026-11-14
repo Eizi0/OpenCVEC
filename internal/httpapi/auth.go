@@ -165,7 +165,7 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) me(w http.ResponseWriter, r *http.Request, u *User) {
-	writeJSON(w, http.StatusOK, map[string]any{"user": u, "require_mfa": s.Cfg.RequireMFA, "canary_zone": s.Cfg.CanaryZone})
+	writeJSON(w, http.StatusOK, map[string]any{"user": u, "require_mfa": s.Cfg.RequireMFA, "canary_zone": s.Cfg.CanaryZone, "version": s.Version})
 }
 
 func (s *Server) changePassword(w http.ResponseWriter, r *http.Request, u *User) {

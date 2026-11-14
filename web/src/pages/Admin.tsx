@@ -229,6 +229,8 @@ function ReceiverAdmin() {
               <div className="field" style={{ flex: '1 1 180px' }}><label htmlFor="wait">Attente du callback (s)</label><input id="wait" className="input" type="number" min={15} max={600} {...num('wait_seconds')} /></div>
               <div className="field" style={{ flex: '1 1 180px' }}><label htmlFor="cpa">Checks par asset et par jour</label><input id="cpa" className="input" type="number" min={1} max={500} {...num('checks_per_asset_day')} /></div>
               <div className="field" style={{ flex: '1 1 180px' }}><label htmlFor="cpu">Checks par utilisateur et par heure</label><input id="cpu" className="input" type="number" min={1} max={1000} {...num('checks_per_user_hour')} /></div>
+              <div className="field" style={{ flex: '1 1 180px' }}><label htmlFor="ret">Conservation (jours, 0 = illimitée)</label><input id="ret" className="input" type="number" min={0} max={3650} {...num('retention_days')} />
+                <p className="hint">Bruit du récepteur et rapports. Preuves, alertes, checks et journal d'audit sont toujours conservés.</p></div>
             </div>
           ) : <Loading />}
           {form && (

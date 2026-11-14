@@ -272,6 +272,16 @@ func (c *Correlator) fileToken(ctx context.Context, ev Event, p canary.Parsed) (
 		w.consumed = true
 	}
 	c.mu.Unlock()
+	if status == StatusHoneytoken {
+		// Une même lecture produit plusieurs requêtes (A, AAAA, nouvelles tentatives du résolveur) :
+		// une seule alerte par canari sur 10 minutes, les suivantes sont enregistrées comme doublons.
+		var recent bool
+		_ = c.DB.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM callbacks WHERE token = $1 AND status = 'honeytoken'
+			AND received_at > $2)`, p.Token, ev.At.Add(-10*time.Minute)).Scan(&recent)
+		if recent {
+			status = StatusDuplicate
+		}
+	}
 	var cid *int64
 	if checkID != 0 {
 		cid = &checkID

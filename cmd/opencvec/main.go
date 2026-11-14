@@ -24,6 +24,7 @@ import (
 	"github.com/Eizi0/OpenCVEC/internal/canary"
 	"github.com/Eizi0/OpenCVEC/internal/config"
 	"github.com/Eizi0/OpenCVEC/internal/httpapi"
+	"github.com/Eizi0/OpenCVEC/internal/maintenance"
 	"github.com/Eizi0/OpenCVEC/internal/plugin"
 	"github.com/Eizi0/OpenCVEC/internal/proof"
 	"github.com/Eizi0/OpenCVEC/internal/receiver"
@@ -34,6 +35,9 @@ import (
 	officialplugins "github.com/Eizi0/OpenCVEC/plugins"
 	"github.com/Eizi0/OpenCVEC/web"
 )
+
+// version est injectée à la compilation (-ldflags "-X main.version=v0.1.0").
+var version = "dev"
 
 const usage = `OpenCVEC : vérification de CVE par canari, auto-hébergée.
 
@@ -74,6 +78,8 @@ func main() {
 		})
 	case "plugin":
 		err = pluginCmd(os.Args[2:])
+	case "version", "--version", "-v":
+		fmt.Println("OpenCVEC", version)
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:
@@ -272,7 +278,7 @@ func serve() error {
 		}
 	}
 	srv := &httpapi.Server{
-		Cfg: cfg, DB: st.Pool, Web: web.FS(), Log: log, Secrets: box,
+		Cfg: cfg, DB: st.Pool, Web: web.FS(), Log: log, Secrets: box, Version: version,
 		Audit:    auditLog,
 		Corr:     corr,
 		Plugins:  plugins,
@@ -311,11 +317,12 @@ func serve() error {
 		return err
 	}
 	srv.Runner = run
+	go maintenance.Run(ctx, st.Pool, log)
 
 	api := &http.Server{Addr: cfg.Addr, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, 1)
 	go func() { errc <- api.ListenAndServe() }()
-	log.Info("OpenCVEC démarré", "addr", cfg.Addr, "zone_canari", cfg.CanaryZone)
+	log.Info("OpenCVEC démarré", "version", version, "addr", cfg.Addr, "zone_canari", cfg.CanaryZone)
 	select {
 	case <-ctx.Done():
 	case err := <-errc:

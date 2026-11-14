@@ -272,24 +272,33 @@ func (c *Correlator) fileToken(ctx context.Context, ev Event, p canary.Parsed) (
 		w.consumed = true
 	}
 	c.mu.Unlock()
-	if status == StatusHoneytoken {
-		// Une même lecture produit plusieurs requêtes (A, AAAA, nouvelles tentatives du résolveur) :
-		// une seule alerte par canari sur 10 minutes, les suivantes sont enregistrées comme doublons.
-		var recent bool
-		_ = c.DB.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM callbacks WHERE token = $1 AND status = 'honeytoken'
-			AND received_at > $2)`, p.Token, ev.At.Add(-10*time.Minute)).Scan(&recent)
-		if recent {
-			status = StatusDuplicate
-		}
-	}
 	var cid *int64
 	if checkID != 0 {
 		cid = &checkID
 	}
 	var id int64
-	if err := c.DB.QueryRow(ctx, `INSERT INTO callbacks (received_at, proto, qtype, qname, point, source_ip, raw, token, check_id, asset_id, status, source_matches)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
-		ev.At, ev.Proto, ev.QType, ev.QName, p.Point, ev.Source, ev.Raw, p.Token, cid, assetID, status, match).Scan(&id); err != nil {
+	// Une même lecture produit plusieurs requêtes (A, AAAA, nouvelles tentatives du résolveur),
+	// enregistrées en parallèle : la décision « alerte ou doublon » et l'insertion se font sous un
+	// verrou transactionnel propre au jeton, pour qu'une seule alerte soit levée sur 10 minutes.
+	err = pgx.BeginFunc(ctx, c.DB, func(tx pgx.Tx) error {
+		if status == StatusHoneytoken {
+			if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(727304, hashtext($1))`, p.Token); err != nil {
+				return err
+			}
+			var recent bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM callbacks WHERE token = $1 AND status = 'honeytoken'
+				AND received_at > $2)`, p.Token, ev.At.Add(-10*time.Minute)).Scan(&recent); err != nil {
+				return err
+			}
+			if recent {
+				status = StatusDuplicate
+			}
+		}
+		return tx.QueryRow(ctx, `INSERT INTO callbacks (received_at, proto, qtype, qname, point, source_ip, raw, token, check_id, asset_id, status, source_matches)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+			ev.At, ev.Proto, ev.QType, ev.QName, p.Point, ev.Source, ev.Raw, p.Token, cid, assetID, status, match).Scan(&id)
+	})
+	if err != nil {
 		return "", true, err
 	}
 	switch status {

@@ -1,7 +1,7 @@
 # Étape 1 : application web
 # Les étapes de compilation tournent sur l'architecture de la machine de build (pas d'émulation) ;
 # seul le binaire Go est compilé pour la cible (amd64, arm64…).
-FROM --platform=$BUILDPLATFORM node:25-alpine AS web
+FROM --platform=$BUILDPLATFORM node:26-alpine AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
